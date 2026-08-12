@@ -9,9 +9,10 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,compositions,apps,libs,test}/**/*.{ts,tsx}\" --fix",
-    "studio": "remotion studio compositions/index.ts",
-    "render:preview": "remotion render compositions/index.ts NewsVideo output/preview.mp4"
+    "lint": "eslint \"{src,apps,libs,test}/**/*.{ts,tsx}\" --fix",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f video-gen"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -19,28 +20,21 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/schedule": "^5.0.0",
-    "@remotion/bundler": "4.0.508",
-    "@remotion/renderer": "4.0.508",
     "better-sqlite3": "^11.8.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cron": "3.5.0",
     "reflect-metadata": "^0.2.2",
-    "remotion": "4.0.508",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "twitter-api-v2": "^1.20.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
-    "@remotion/cli": "^4.0.508",
     "@types/better-sqlite3": "^7.6.12",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "typescript": "^5.7.2"
   }
 }

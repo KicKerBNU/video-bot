@@ -1,0 +1,16 @@
+node_modules
+dist
+output
+data
+.git
+.gitignore
+.env
+*.md
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+.cursor
+.vscode
+coverage
+tmp

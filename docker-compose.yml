@@ -1,0 +1,38 @@
+services:
+  video-gen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video-gen
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      DATA_DIR: data
+      OUTPUT_DIR: output
+      # Cron must use container UTC clock (digest lands at 08:00 UTC)
+      CRON_TIMEZONE: UTC
+    volumes:
+      - video_gen_data:/app/data
+      - video_gen_output:/app/output
+      # Optional: bind-mount for easy local inspection of rendered MP4s
+      # - ./output:/app/output
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  video_gen_data:
+  video_gen_output:

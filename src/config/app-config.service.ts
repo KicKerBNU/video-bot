@@ -58,12 +58,12 @@ export class AppConfigService {
   }
 
   get cronSchedule(): string {
-    // Digest publishes at 09:00 Lisbon; default a few minutes later.
-    return this.config.get<string>('CRON_SCHEDULE') ?? '5 9 * * *';
+    // Digest publishes at 08:00 UTC; wait 1 minute before generating.
+    return this.config.get<string>('CRON_SCHEDULE') ?? '1 8 * * *';
   }
 
   get cronTimezone(): string {
-    return this.config.get<string>('CRON_TIMEZONE') ?? 'Europe/Lisbon';
+    return this.config.get<string>('CRON_TIMEZONE') ?? 'UTC';
   }
 
   get brandName(): string {
