@@ -46,6 +46,23 @@ Persistent volumes:
 
 To inspect videos on the host, uncomment the `./output:/app/output` bind mount in `docker-compose.yml`.
 
+## Railway
+
+Live service: https://video-gen-production-d57f.up.railway.app
+
+Configured via `railway.toml` + `Dockerfile`. Persistent volume at `/data`.
+
+```bash
+railway link
+railway up -d
+railway logs
+```
+
+Ops:
+- `GET https://video-gen-production-d57f.up.railway.app/health`
+- `POST https://video-gen-production-d57f.up.railway.app/pipeline/run`
+- `GET https://video-gen-production-d57f.up.railway.app/pipeline/status`
+
 ## Ops endpoints
 
 - `GET /health` — liveness
