@@ -7,7 +7,8 @@ NestJS service that fetches a daily AI news script, renders a vertical TikTok/Re
 ```bash
 yarn install
 cp .env.example .env
-# Fill in NEWS_API_URL, ElevenLabs, Twitter, and TikTok credentials
+# Fill in NEWS_API_URL, Twitter, and TikTok credentials
+# TTS uses free Microsoft Edge neural voices (no API key)
 # Requires ffmpeg on PATH (brew install ffmpeg) for local non-Docker runs
 yarn start:dev
 ```
@@ -73,17 +74,19 @@ Ops:
 
 MoviePy-style pipeline, fully in Node:
 
-1. **ElevenLabs** — TTS + word timestamps
+1. **Edge TTS** — free Microsoft neural voices + word timestamps (no API key)
 2. **Sharp** — branded 1080×1920 background + caption overlays
 3. **FFmpeg** — compose background + timed overlays + delayed audio → MP4
 
 Code lives under `src/video/engine/`.
 
+Default voice: `EDGE_TTS_VOICE=en-US-GuyNeural` (other options include `en-US-JennyNeural`, `en-GB-RyanNeural`).
+
 ## Daily flow
 
 1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter)
 2. Fetches `NEWS_API_URL` (`/api/digest`) and builds today's video script from `headline` + `bullets`
-3. ElevenLabs TTS with word timestamps
+3. Edge TTS with word timestamps
 4. Custom FFmpeg engine renders 1080×1920 captions video
 5. Publishes to Twitter/X and TikTok
 6. Stores the digest id (`digest-YYYY-MM-DD`) in SQLite so it is not posted again

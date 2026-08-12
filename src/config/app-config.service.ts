@@ -18,14 +18,10 @@ export class AppConfigService {
     return key && key.length > 0 ? key : undefined;
   }
 
-  get elevenLabsApiKey(): string {
-    return this.config.getOrThrow<string>('ELEVENLABS_API_KEY');
-  }
-
-  get elevenLabsVoiceId(): string {
+  /** Microsoft Edge neural voice (free, no API key). */
+  get edgeTtsVoice(): string {
     return (
-      this.config.get<string>('ELEVENLABS_VOICE_ID') ??
-      '21m00Tcm4TlvDq8ikWAM'
+      this.config.get<string>('EDGE_TTS_VOICE') ?? 'en-US-GuyNeural'
     );
   }
 

@@ -30,7 +30,7 @@ export interface FfmpegRenderInput {
 }
 
 /**
- * Custom Node video engine: FFmpeg + Sharp overlays + ElevenLabs audio.
+ * Custom Node video engine: FFmpeg + Sharp overlays + Edge TTS audio.
  * MoviePy-style pipeline without leaving Node (works without libass/drawtext).
  */
 @Injectable()
