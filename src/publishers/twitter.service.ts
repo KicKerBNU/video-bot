@@ -12,10 +12,10 @@ export class TwitterPublisherService {
 
   async publish(script: VideoScript, videoPath: string): Promise<PublishResult> {
     const client = new TwitterApi({
-      appKey: this.appConfig.twitterApiKey,
-      appSecret: this.appConfig.twitterApiSecret,
+      appKey: this.appConfig.twitterConsumerKey,
+      appSecret: this.appConfig.twitterConsumerSecret,
       accessToken: this.appConfig.twitterAccessToken,
-      accessSecret: this.appConfig.twitterAccessSecret,
+      accessSecret: this.appConfig.twitterAccessTokenSecret,
     });
 
     const mediaData = await readFile(videoPath);
@@ -43,11 +43,12 @@ export class TwitterPublisherService {
   }
 
   private buildTweetText(script: VideoScript): string {
+    // Never include URLs — X Pay Per Use charges ~$0.20 for posts with links
+    // vs ~$0.015 for media/text posts without URLs.
     const hashtags = (script.hashtags ?? ['#AI', '#TechNews'])
       .slice(0, 3)
       .join(' ');
-    const link = script.sourceUrl ? `\n${script.sourceUrl}` : '';
-    const base = `${script.title}\n\n${hashtags}${link}`;
+    const base = `${script.title}\n\n${hashtags}`;
     return base.length > 270 ? `${base.slice(0, 267)}...` : base;
   }
 }

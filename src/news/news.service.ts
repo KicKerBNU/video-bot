@@ -137,6 +137,39 @@ export class NewsService {
       ...bodyParts,
     ].join(' ');
 
+    const segments = [
+      {
+        id: 'intro',
+        title: headline,
+        summary: bullets[0]?.summary?.trim(),
+        spokenHint: 'Here is today',
+        searchQuery: this.toSearchQuery(headline),
+        imagePrompt: this.toKlingPrompt(headline, bullets[0]?.summary?.trim()),
+      },
+      ...bullets.map((bullet, index) => ({
+        id: `bullet-${index + 1}`,
+        title: bullet.title!.trim(),
+        summary: bullet.summary!.trim(),
+        spokenHint: bullet.title!.trim().split(/\s+/).slice(0, 4).join(' '),
+        searchQuery: this.toSearchQuery(bullet.title!.trim()),
+        imagePrompt: this.toKlingPrompt(
+          bullet.title!.trim(),
+          bullet.summary!.trim(),
+        ),
+      })),
+      {
+        id: 'closing',
+        title: 'AI news studio',
+        summary: headline,
+        spokenHint: "That's all for today",
+        searchQuery: this.toSearchQuery(`${headline} artificial intelligence`),
+        imagePrompt: this.toKlingPrompt(
+          'Modern AI news studio desk with holographic screens',
+          `Wrapping up today's top story: ${headline}`,
+        ),
+      },
+    ];
+
     return {
       id: `digest-${dayId}`,
       title: headline,
@@ -144,6 +177,7 @@ export class NewsService {
       hook: `AI news for ${dayId}`,
       hashtags: ['#AI', '#TechNews', '#AINews'],
       publishedAt,
+      segments,
     };
   }
 
@@ -170,7 +204,119 @@ export class NewsService {
       hook: source ? `From ${source}` : undefined,
       hashtags: ['#AI', '#TechNews'],
       publishedAt,
+      segments: [
+        {
+          id: 'main',
+          title,
+          summary,
+          spokenHint: title.split(/\s+/).slice(0, 4).join(' '),
+          searchQuery: this.toSearchQuery(title),
+          imagePrompt: this.toKlingPrompt(title, summary),
+        },
+      ],
     };
+  }
+
+  private toKlingPrompt(title: string, _summary?: string): string {
+    // Keep prompts visual-only. Passing raw headlines/summaries makes models
+    // paint gibberish text and UI bars onto the stills.
+    const visualSubject = this.toSearchQuery(title) || 'artificial intelligence technology';
+    return [
+      'Photorealistic cinematic news B-roll still photograph only,',
+      'vertical 9:16 framing, editorial photography, dramatic lighting,',
+      `visual subject: ${visualSubject}, real physical world scene.`,
+      'Prefer hardware, data centers, chips, cables, city skylines, labs,',
+      'hands-free product photography, empty environments.',
+      'Absolutely no text anywhere, no letters, no words, no numbers,',
+      'no captions, no subtitles, no logos, no watermarks, no signage,',
+      'no posters, no billboards, no labels, no stickers,',
+      'no computer monitors showing UI, no phone screens, no dashboards,',
+      'no HUD, no green bars, no color bars, no overlays of any kind.',
+      'Blank unmarked surfaces only.',
+    ].join(' ');
+  }
+
+  private toSearchQuery(value: string): string {
+    const stop = new Set([
+      'a',
+      'an',
+      'the',
+      'and',
+      'or',
+      'for',
+      'to',
+      'of',
+      'in',
+      'on',
+      'with',
+      'from',
+      'as',
+      'by',
+      'at',
+      'is',
+      'are',
+      'its',
+      'into',
+      'over',
+      'after',
+      'before',
+      'about',
+      'seeks',
+      'secures',
+      'deploys',
+      'breach',
+      'billion',
+      'million',
+      'public',
+      'capital',
+      'competition',
+      'focused',
+      'alliance',
+      'financing',
+      'infrastructure',
+    ]);
+
+    const known = [
+      'nvidia',
+      'openai',
+      'intel',
+      'google',
+      'microsoft',
+      'meta',
+      'amazon',
+      'apple',
+      'tesla',
+      'anthropic',
+      'deepmind',
+    ];
+
+    const lower = value.toLowerCase();
+    const brand = known.find((name) => lower.includes(name));
+
+    const tokens = value
+      .replace(/[$€£0-9]/g, ' ')
+      .replace(/[^a-zA-Z\s]/g, ' ')
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2 && !stop.has(token.toLowerCase()));
+
+    const visualHints = tokens
+      .filter((token) =>
+        /ai|model|security|cyber|chip|gpu|data|cloud|robot|server|lab|tech/i.test(
+          token,
+        ),
+      )
+      .slice(0, 2);
+
+    const parts = [brand, ...visualHints, tokens[0]].filter(Boolean) as string[];
+    const unique = [...new Set(parts.map((part) => part.toLowerCase()))];
+
+    if (unique.length === 0) {
+      return 'artificial intelligence technology';
+    }
+
+    // Keep queries short and visual for stock/CC image search.
+    return `${unique.slice(0, 3).join(' ')} technology`.trim();
   }
 
   private toLisbonDayId(isoTimestamp: string): string {

@@ -55,9 +55,13 @@ export class DailyPipelineService {
 
       this.logger.log(`Processing news ${script.id}: ${script.title}`);
 
-      const spokenText = truncateScriptForShortForm(
+      const bodyText = truncateScriptForShortForm(
         [script.hook, script.body].filter(Boolean).join('. '),
       );
+      const spokenText = `${bodyText} ${this.appConfig.closingLine}`.replace(
+        /\s+/g,
+        ' ',
+      ).trim();
       const ttsResult = await this.tts.synthesize(spokenText, script.id);
       const videoPath = await this.video.render({
         script,

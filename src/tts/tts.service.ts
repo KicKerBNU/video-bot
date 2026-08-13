@@ -46,16 +46,43 @@ export class TtsService {
 
   /** Edge offsets/durations are in 100-nanosecond units. */
   private cuesToWords(cues: EdgeSubtitleCue[]): WordTimestamp[] {
-    return cues
-      .map((cue) => {
-        const startMs = Math.round(cue.offset / 10_000);
-        const endMs = Math.round((cue.offset + cue.duration) / 10_000);
-        return {
-          word: cue.text.trim(),
-          startMs,
-          endMs: Math.max(endMs, startMs + 40),
-        };
-      })
-      .filter((word) => word.word.length > 0);
+    const words: WordTimestamp[] = [];
+
+    for (const cue of cues) {
+      const parts = this.splitCueText(cue.text);
+      if (parts.length === 0) {
+        continue;
+      }
+
+      const startMs = Math.round(cue.offset / 10_000);
+      const endMs = Math.max(
+        startMs + 40,
+        Math.round((cue.offset + cue.duration) / 10_000),
+      );
+      const slice = Math.max(40, (endMs - startMs) / parts.length);
+
+      parts.forEach((part, index) => {
+        const partStart = Math.round(startMs + index * slice);
+        words.push({
+          word: part,
+          startMs: partStart,
+          endMs: Math.round(partStart + slice),
+        });
+      });
+    }
+
+    return words;
+  }
+
+  /** Split subtitle cues that arrive glued ("500BillionFinancing"). */
+  private splitCueText(text: string): string[] {
+    return text
+      .trim()
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([0-9])([A-Za-z])/g, '$1 $2')
+      .replace(/([A-Za-z])([0-9])/g, '$1 $2')
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
   }
 }

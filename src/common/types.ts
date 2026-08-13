@@ -1,3 +1,15 @@
+export interface ScriptSegment {
+  id: string;
+  title: string;
+  summary?: string;
+  /** Phrase used to align this segment to TTS word timings */
+  spokenHint: string;
+  /** Query used to find related still images (Openverse fallback) */
+  searchQuery: string;
+  /** Rich prompt for Kling AI image generation */
+  imagePrompt?: string;
+}
+
 export interface VideoScript {
   id: string;
   title: string;
@@ -6,6 +18,7 @@ export interface VideoScript {
   hashtags?: string[];
   sourceUrl?: string;
   publishedAt?: string;
+  segments?: ScriptSegment[];
 }
 
 export interface WordTimestamp {
