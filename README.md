@@ -70,6 +70,24 @@ Ops:
 - `POST /pipeline/run` — run today's job manually
 - `GET /pipeline/status` — last run + last posted item
 
+## macOS background service (auto daily run)
+
+Keeps Wan + Nest running via LaunchAgents after login. Nest’s cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) generates the video every day — Cursor does not need to be open.
+
+```bash
+yarn build
+yarn service:install    # install + start LaunchAgents
+yarn service:status     # health + schedule
+yarn service:uninstall  # stop + remove
+```
+
+Logs: `logs/macos/wan.*.log` and `logs/macos/app.*.log`.
+
+Notes:
+- Mac must be awake / logged in at schedule time (LaunchAgents are per-user).
+- Keep `yarn wan:setup` done once so the Wan venv exists.
+- For unattended publish later, set `SKIP_PUBLISH=false` and keep X API credits funded.
+
 ## Custom Node video engine
 
 MoviePy-style pipeline, fully in Node:

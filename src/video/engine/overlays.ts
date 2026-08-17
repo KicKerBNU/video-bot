@@ -101,6 +101,8 @@ export async function createCaptionOverlays(params: {
   const { outputDir, captions } = params;
   const overlays: TimedOverlay[] = [];
   let index = 0;
+  const watermarkY = VIDEO_HEIGHT - 140;
+  const gapAboveWatermark = 10;
 
   for (const chunk of captions) {
     for (let w = 0; w < chunk.words.length; w += 1) {
@@ -109,7 +111,7 @@ export async function createCaptionOverlays(params: {
         outputDir,
         `caption-${String(index).padStart(4, '0')}.png`,
       );
-      await renderCaptionPng(file, chunk.words, w);
+      const captionHeight = await renderCaptionPng(file, chunk.words, w);
 
       const startSec = active.startMs / 1000;
       const endSec =
@@ -122,7 +124,8 @@ export async function createCaptionOverlays(params: {
         startSec,
         endSec: Math.max(endSec, startSec + 0.05),
         x: 0,
-        y: Math.round(VIDEO_HEIGHT * 0.58),
+        // Flush just above the ZanshinAI watermark.
+        y: watermarkY - captionHeight - gapAboveWatermark,
       });
       index += 1;
     }
@@ -134,10 +137,9 @@ export async function createCaptionOverlays(params: {
 async function renderCaptionPng(
   outputPath: string,
   words: WordTimestamp[],
-  activeIndex: number,
-): Promise<void> {
+  _activeIndex: number,
+): Promise<number> {
   const width = VIDEO_WIDTH;
-  const height = 420;
   const displayWords = words.flatMap((word) => {
     const cleaned = word.word.replace(/[^\p{L}\p{N}'-]+/gu, '');
     const base = cleaned || word.word;
@@ -149,32 +151,32 @@ async function renderCaptionPng(
       .map((part) => part.toUpperCase())
       .filter(Boolean);
   });
-  // Keep activeIndex roughly aligned by using original word count for highlight
-  // line brightness only (full line lights up when any of its source words are active).
   const lines = wrapCaptionWords(displayWords, 22);
+  const boxHeight = Math.max(120, 40 + lines.length * 58);
+  const height = boxHeight + 28;
 
   // Single text nodes (not tspans) so spaces never collapse in Sharp/librsvg.
   const lineSvgs = lines
     .map((lineWords, lineIndex) => {
-      const y = 78 + lineIndex * 70;
+      const y = 52 + lineIndex * 58;
       const lineText = lineWords.join(' ');
       return `
         <text x="50%" y="${y}" text-anchor="middle"
           font-family="Helvetica Neue, Arial, sans-serif"
-          font-size="48" font-weight="800" fill="#FFFFFF"
-          stroke="#000000" stroke-width="10" paint-order="stroke">${escapeXml(lineText)}</text>`;
+          font-size="42" font-weight="800" fill="#FFFFFF"
+          stroke="#000000" stroke-width="9" paint-order="stroke">${escapeXml(lineText)}</text>`;
     })
     .join('\n');
 
-  const boxHeight = Math.max(190, 56 + lines.length * 70);
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="36" y="18" width="${width - 72}" height="${boxHeight}" rx="22" fill="#000000" fill-opacity="0.92"/>
+      <rect x="36" y="8" width="${width - 72}" height="${boxHeight}" rx="20" fill="#000000" fill-opacity="0.92"/>
       ${lineSvgs}
     </svg>
   `;
 
   await sharp(Buffer.from(svg)).png().toFile(outputPath);
+  return height;
 }
 
 function wrapCaptionWords(words: string[], maxChars: number): string[][] {

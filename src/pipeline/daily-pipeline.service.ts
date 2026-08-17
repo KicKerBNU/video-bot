@@ -8,6 +8,7 @@ import { VideoService } from '../video/video.service';
 import { truncateScriptForShortForm } from '../video/caption-utils';
 import { TwitterPublisherService } from '../publishers/twitter.service';
 import { TikTokPublisherService } from '../publishers/tiktok.service';
+import { ResendEmailService } from '../publishers/resend-email.service';
 
 @Injectable()
 export class DailyPipelineService {
@@ -22,6 +23,7 @@ export class DailyPipelineService {
     private readonly video: VideoService,
     private readonly twitter: TwitterPublisherService,
     private readonly tiktok: TikTokPublisherService,
+    private readonly resendEmail: ResendEmailService,
   ) {}
 
   async run(): Promise<PipelineRunResult> {
@@ -73,13 +75,35 @@ export class DailyPipelineService {
       const publishes: PublishResult[] = [];
 
       if (this.appConfig.skipPublish) {
-        this.logger.warn('SKIP_PUBLISH=true — video generated only');
+        this.logger.warn('SKIP_PUBLISH=true — social publish skipped');
       } else {
         const twitterResult = await this.twitter.publish(script, videoPath);
         publishes.push(twitterResult);
 
         const tiktokResult = await this.tiktok.publish(script, videoPath);
         publishes.push(tiktokResult);
+      }
+
+      if (this.appConfig.skipEmail) {
+        this.logger.warn('SKIP_EMAIL=true — Resend delivery skipped');
+      } else if (!this.resendEmail.isConfigured) {
+        this.logger.warn(
+          'Resend not configured (need RESEND_API_KEY + RESEND_TO_EMAIL) — email skipped',
+        );
+      } else {
+        try {
+          const emailResult = await this.resendEmail.sendDailyVideo(
+            script,
+            videoPath,
+          );
+          publishes.push(emailResult);
+        } catch (emailError) {
+          const message =
+            emailError instanceof Error
+              ? emailError.message
+              : String(emailError);
+          this.logger.error(`Resend email failed: ${message}`);
+        }
       }
 
       this.store.savePosted({
@@ -91,14 +115,19 @@ export class DailyPipelineService {
         postedAt: new Date().toISOString(),
       });
 
+      const emailed = publishes.some((p) => p.platform === 'email');
       const result: PipelineRunResult = {
         status: 'posted',
         newsId: script.id,
         videoPath,
         publishes,
         message: this.appConfig.skipPublish
-          ? 'Generated video; publish skipped'
-          : 'Published to configured platforms',
+          ? emailed
+            ? 'Generated video; emailed via Resend; social publish skipped'
+            : 'Generated video; publish skipped'
+          : emailed
+            ? 'Published to configured platforms + Resend email'
+            : 'Published to configured platforms',
         startedAt,
         finishedAt: new Date().toISOString(),
       };
@@ -129,6 +158,8 @@ export class DailyPipelineService {
       cronTimezone: this.appConfig.cronTimezone,
       brandName: this.appConfig.brandName,
       skipPublish: this.appConfig.skipPublish,
+      skipEmail: this.appConfig.skipEmail,
+      resendConfigured: this.appConfig.isResendConfigured,
     };
   }
 }

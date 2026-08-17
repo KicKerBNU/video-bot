@@ -11,3 +11,4 @@ workers/wan/.venv/
 workers/wan/__pycache__/
 *.pyc
 .cache/
+logs/

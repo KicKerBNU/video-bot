@@ -200,6 +200,48 @@ export class AppConfigService {
     return (this.config.get<string>('SKIP_PUBLISH') ?? 'false') === 'true';
   }
 
+  get resendApiKey(): string | undefined {
+    const key = this.config.get<string>('RESEND_API_KEY')?.trim();
+    return key && key.length > 0 ? key : undefined;
+  }
+
+  get resendFromEmail(): string {
+    return (
+      this.config.get<string>('RESEND_FROM_EMAIL')?.trim() ||
+      'ZanshinAI <onboarding@resend.dev>'
+    );
+  }
+
+  /** Comma-separated recipient list for daily video delivery. */
+  get resendToEmails(): string[] {
+    const raw = this.config.get<string>('RESEND_TO_EMAIL')?.trim() ?? '';
+    return raw
+      .split(/[,;\s]+/)
+      .map((email) => email.trim())
+      .filter((email) => email.includes('@'));
+  }
+
+  /** Email delivery is independent of SKIP_PUBLISH social posting. */
+  get skipEmail(): boolean {
+    return (this.config.get<string>('SKIP_EMAIL') ?? 'false') === 'true';
+  }
+
+  get isResendConfigured(): boolean {
+    return Boolean(this.resendApiKey) && this.resendToEmails.length > 0;
+  }
+
+  /** Reuse existing segment stills (faster local re-renders). */
+  get reuseImages(): boolean {
+    const value = (
+      this.config.get<string>('REUSE_IMAGES') ??
+      process.env.REUSE_IMAGES ??
+      'false'
+    )
+      .trim()
+      .toLowerCase();
+    return value === 'true' || value === '1';
+  }
+
   get dataDir(): string {
     return this.config.get<string>('DATA_DIR') ?? 'data';
   }

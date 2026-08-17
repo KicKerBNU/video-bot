@@ -51,7 +51,7 @@ export interface NewsVideoProps {
 }
 
 export interface PublishResult {
-  platform: 'twitter' | 'tiktok';
+  platform: 'twitter' | 'tiktok' | 'email';
   postId: string;
   url?: string;
 }

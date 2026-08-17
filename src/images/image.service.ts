@@ -68,8 +68,7 @@ export class ImageService {
 
     for (const [index, segment] of segments.entries()) {
       const target = join(imagesDir, `segment-${index}-${segment.id}.jpg`);
-      const reuseImages =
-        (process.env.REUSE_IMAGES ?? '').toLowerCase() === 'true';
+      const reuseImages = this.appConfig.reuseImages;
 
       if (reuseImages) {
         try {
