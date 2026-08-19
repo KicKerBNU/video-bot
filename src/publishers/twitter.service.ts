@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 import { TwitterApi } from 'twitter-api-v2';
 import { AppConfigService } from '../config/app-config.service';
 import { PublishResult, VideoScript } from '../common/types';
+import { buildTwitterCaption } from './post-captions';
 
 @Injectable()
 export class TwitterPublisherService {
@@ -43,12 +44,6 @@ export class TwitterPublisherService {
   }
 
   private buildTweetText(script: VideoScript): string {
-    // Never include URLs — X Pay Per Use charges ~$0.20 for posts with links
-    // vs ~$0.015 for media/text posts without URLs.
-    const hashtags = (script.hashtags ?? ['#AI', '#TechNews'])
-      .slice(0, 3)
-      .join(' ');
-    const base = `${script.title}\n\n${hashtags}`;
-    return base.length > 270 ? `${base.slice(0, 267)}...` : base;
+    return buildTwitterCaption(script);
   }
 }
