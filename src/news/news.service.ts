@@ -38,19 +38,44 @@ export class NewsService {
 
     this.logger.log(`Fetching digest from ${url}`);
 
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `News API failed (${response.status}): ${body.slice(0, 500)}`,
-      );
+    const maxAttempts = 4;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetch(url, {
+          headers,
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(
+            `News API failed (${response.status}): ${body.slice(0, 500)}`,
+          );
+        }
+
+        const payload = (await response.json()) as DigestPayload;
+        const scripts = this.normalizeDigest(payload);
+
+        this.logger.log(`Normalized ${scripts.length} script(s) from digest`);
+        return scripts;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt === maxAttempts) {
+          break;
+        }
+        const delayMs = attempt * 5_000;
+        this.logger.warn(
+          `Digest fetch attempt ${attempt}/${maxAttempts} failed (${message}); retrying in ${delayMs}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
     }
 
-    const payload = (await response.json()) as DigestPayload;
-    const scripts = this.normalizeDigest(payload);
-
-    this.logger.log(`Normalized ${scripts.length} script(s) from digest`);
-    return scripts;
+    const message =
+      lastError instanceof Error ? lastError.message : String(lastError);
+    throw new Error(`Digest fetch failed after ${maxAttempts} attempts: ${message}`);
   }
 
   async fetchNextUnpublished(

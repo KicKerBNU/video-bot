@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { join } from 'path';
 import { AppConfigService } from '../config/app-config.service';
 import { PipelineRunResult, PublishResult } from '../common/types';
 import { NewsService } from '../news/news.service';
@@ -9,6 +10,8 @@ import { truncateScriptForShortForm } from '../video/caption-utils';
 import { TwitterPublisherService } from '../publishers/twitter.service';
 import { TikTokPublisherService } from '../publishers/tiktok.service';
 import { ResendEmailService } from '../publishers/resend-email.service';
+import { ThreadsImageService } from '../publishers/threads-image.service';
+import { YoutubeThumbnailService } from '../publishers/youtube-thumbnail.service';
 
 @Injectable()
 export class DailyPipelineService {
@@ -24,6 +27,8 @@ export class DailyPipelineService {
     private readonly twitter: TwitterPublisherService,
     private readonly tiktok: TikTokPublisherService,
     private readonly resendEmail: ResendEmailService,
+    private readonly threadsImage: ThreadsImageService,
+    private readonly youtubeThumbnail: YoutubeThumbnailService,
   ) {}
 
   async run(): Promise<PipelineRunResult> {
@@ -72,6 +77,41 @@ export class DailyPipelineService {
         words: ttsResult.words,
       });
 
+      const outputDir = join(
+        process.cwd(),
+        this.appConfig.outputDir,
+        script.id,
+      );
+
+      let threadsImagePath: string | undefined;
+      try {
+        threadsImagePath = await this.threadsImage.render(script, outputDir);
+      } catch (threadsError) {
+        const message =
+          threadsError instanceof Error
+            ? threadsError.message
+            : String(threadsError);
+        this.logger.warn(
+          `Threads image failed (${message}); continuing without it`,
+        );
+      }
+
+      let youtubeThumbnailPath: string | undefined;
+      try {
+        youtubeThumbnailPath = await this.youtubeThumbnail.render(
+          script,
+          outputDir,
+        );
+      } catch (youtubeError) {
+        const message =
+          youtubeError instanceof Error
+            ? youtubeError.message
+            : String(youtubeError);
+        this.logger.warn(
+          `YouTube thumbnail failed (${message}); continuing without it`,
+        );
+      }
+
       const publishes: PublishResult[] = [];
 
       if (this.appConfig.skipPublish) {
@@ -95,6 +135,8 @@ export class DailyPipelineService {
           const emailResult = await this.resendEmail.sendDailyVideo(
             script,
             videoPath,
+            threadsImagePath,
+            youtubeThumbnailPath,
           );
           publishes.push(emailResult);
         } catch (emailError) {

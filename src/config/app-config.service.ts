@@ -230,6 +230,11 @@ export class AppConfigService {
     return Boolean(this.resendApiKey) && this.resendToEmails.length > 0;
   }
 
+  /** Wait before a full pipeline retry after a failed daily cron run. */
+  get pipelineRetryDelayMs(): number {
+    return Number(this.config.get<string>('PIPELINE_RETRY_DELAY_MS') ?? 300_000);
+  }
+
   /** Reuse existing segment stills (faster local re-renders). */
   get reuseImages(): boolean {
     const value = (
