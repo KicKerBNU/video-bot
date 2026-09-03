@@ -134,13 +134,14 @@ Without a working AI provider, the bot falls back to Openverse stills automatica
 
 ## Daily flow
 
-1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter)
+1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter). If today's digest isn't ready or the fetch fails, it retries up to **10 times every 10 minutes** (`PIPELINE_RETRY_ATTEMPTS` / `PIPELINE_RETRY_DELAY_MS`).
 2. Fetches `NEWS_API_URL` (`/api/digest`) and builds today's video script from `headline` + `bullets`
 3. Edge TTS with word timestamps
 4. Local Wan images timed to each news segment (Openverse fallback)
 5. Custom FFmpeg engine renders 1080×1920 slideshow video (no on-screen script text)
-6. Publishes to Twitter/X and TikTok
-7. Stores the digest id (`digest-YYYY-MM-DD`) in SQLite so it is not posted again
+6. Builds `threads.jpg` (vertical post card) and `youtube-thumbnail.jpg` (**2160×3840, 9:16** — [YouTube Shorts custom thumbnail](https://support.google.com/youtube/answer/72431))
+7. Publishes to Twitter/X and TikTok (or emails assets when `SKIP_PUBLISH=true`)
+8. Stores the digest id (`digest-YYYY-MM-DD`) in SQLite so it is not posted again
 
 ## News API shape
 

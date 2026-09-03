@@ -61,7 +61,7 @@ export class NewsService {
         return scripts;
       } catch (error) {
         lastError = error;
-        const message = error instanceof Error ? error.message : String(error);
+        const message = formatFetchError(error);
         if (attempt === maxAttempts) {
           break;
         }
@@ -73,8 +73,7 @@ export class NewsService {
       }
     }
 
-    const message =
-      lastError instanceof Error ? lastError.message : String(lastError);
+    const message = formatFetchError(lastError);
     throw new Error(`Digest fetch failed after ${maxAttempts} attempts: ${message}`);
   }
 
@@ -458,4 +457,23 @@ export class NewsService {
       .replace(/^-+|-+$/g, '')
       .slice(0, 48);
   }
+}
+
+/** Include undici/Node cause (ENOTFOUND, ECONNRESET, etc.) — plain "fetch failed" hides it. */
+function formatFetchError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const parts = [error.message];
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause instanceof Error) {
+    const code =
+      'code' in cause && typeof (cause as { code?: unknown }).code === 'string'
+        ? (cause as { code: string }).code
+        : undefined;
+    parts.push(code ? `${cause.message} [${code}]` : cause.message);
+  } else if (cause != null) {
+    parts.push(String(cause));
+  }
+  return parts.filter(Boolean).join(' — ');
 }

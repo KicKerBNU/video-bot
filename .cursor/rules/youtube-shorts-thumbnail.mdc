@@ -1,0 +1,23 @@
+---
+description: YouTube Shorts thumbnails must always match Google’s 9:16 Shorts spec
+globs: src/publishers/youtube-thumbnail.service.ts,src/publishers/**/*thumbnail*,scripts/email-test.sh
+alwaysApply: false
+---
+
+# YouTube Shorts custom thumbnails
+
+Always follow [YouTube’s custom thumbnail guide](https://support.google.com/youtube/answer/72431):
+
+- **Shorts aspect ratio: 9:16** (never 16:9 for Shorts)
+- **Recommended size: 2160×3840**
+- Minimum height 640px; JPG or PNG; under desktop 50MB limit
+- Custom Shorts thumbs are uploaded in YouTube Studio (desktop); channel must be verified
+
+## In this repo
+
+- Output file: `youtube-thumbnail.jpg` in each digest folder
+- Constants in `src/publishers/youtube-thumbnail.service.ts`: `THUMB_WIDTH = 2160`, `THUMB_HEIGHT = 3840`
+- After write, the service **must** assert exact `2160×3840` and fail if wrong
+- Do not change these dimensions unless Google’s Shorts recommendation changes
+
+Regular (non-Shorts) video thumbs are 16:9 / 3840×2160 — that format is **not** used for this daily Shorts pipeline.

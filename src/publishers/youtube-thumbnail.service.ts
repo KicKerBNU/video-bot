@@ -84,7 +84,16 @@ export class YoutubeThumbnailService {
       .jpeg({ quality: 90 })
       .toFile(outputPath);
 
-    this.logger.log(`YouTube thumbnail ready: ${outputPath}`);
+    const meta = await sharp(outputPath).metadata();
+    if (meta.width !== THUMB_WIDTH || meta.height !== THUMB_HEIGHT) {
+      throw new Error(
+        `YouTube Shorts thumbnail must be ${THUMB_WIDTH}x${THUMB_HEIGHT} (9:16); got ${meta.width}x${meta.height}`,
+      );
+    }
+
+    this.logger.log(
+      `YouTube thumbnail ready: ${outputPath} (${meta.width}x${meta.height}, 9:16 Shorts)`,
+    );
     return outputPath;
   }
 

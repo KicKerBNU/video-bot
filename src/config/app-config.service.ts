@@ -230,9 +230,22 @@ export class AppConfigService {
     return Boolean(this.resendApiKey) && this.resendToEmails.length > 0;
   }
 
-  /** Wait before a full pipeline retry after a failed daily cron run. */
+  /**
+   * Wait between daily cron pipeline attempts when today's digest isn't ready
+   * or the fetch fails (default 10 min).
+   */
   get pipelineRetryDelayMs(): number {
-    return Number(this.config.get<string>('PIPELINE_RETRY_DELAY_MS') ?? 300_000);
+    return Number(
+      this.config.get<string>('PIPELINE_RETRY_DELAY_MS') ?? 600_000,
+    );
+  }
+
+  /** Max daily cron pipeline attempts including the first (default 10). */
+  get pipelineRetryAttempts(): number {
+    const value = Number(
+      this.config.get<string>('PIPELINE_RETRY_ATTEMPTS') ?? 10,
+    );
+    return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 10;
   }
 
   /** Reuse existing segment stills (faster local re-renders). */
