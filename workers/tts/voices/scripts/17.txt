@@ -1,0 +1,1 @@
+DeepSeek published a technical report on sparse attention that cuts memory by about seventy percent on long documents.

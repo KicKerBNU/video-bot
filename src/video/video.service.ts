@@ -19,17 +19,30 @@ export class VideoService {
     audioPath: string;
     durationMs: number;
     words: WordTimestamp[];
+    /** Defaults to video.mp4 */
+    fileName?: string;
+    /** Reuse segment stills from a prior render in the same output dir */
+    forceReuseImages?: boolean;
   }): Promise<string> {
-    const { script, audioPath, durationMs, words } = params;
+    const {
+      script,
+      audioPath,
+      durationMs,
+      words,
+      fileName = 'video.mp4',
+      forceReuseImages,
+    } = params;
     const outputDir = join(
       process.cwd(),
       this.appConfig.outputDir,
       script.id,
     );
     await mkdir(outputDir, { recursive: true });
-    const outputPath = join(outputDir, 'video.mp4');
+    const outputPath = join(outputDir, fileName);
 
-    this.logger.log(`Rendering with custom FFmpeg engine for ${script.id}`);
+    this.logger.log(
+      `Rendering with custom FFmpeg engine for ${script.id} → ${fileName}`,
+    );
 
     return this.engine.render({
       script,
@@ -38,6 +51,7 @@ export class VideoService {
       words,
       outputDir,
       outputPath,
+      forceReuseImages,
     });
   }
 }

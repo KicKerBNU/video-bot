@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { join } from 'path';
 import { AppConfigService } from '../config/app-config.service';
-import { PipelineRunResult, PublishResult } from '../common/types';
+import { PipelineRunResult, PublishResult, TtsResult } from '../common/types';
 import { NewsService } from '../news/news.service';
 import { StoreService } from '../store/store.service';
 import { TtsService } from '../tts/tts.service';
@@ -65,17 +65,56 @@ export class DailyPipelineService {
       const bodyText = truncateScriptForShortForm(
         [script.hook, script.body].filter(Boolean).join('. '),
       );
-      const spokenText = `${bodyText} ${this.appConfig.closingLine}`.replace(
-        /\s+/g,
-        ' ',
-      ).trim();
-      const ttsResult = await this.tts.synthesize(spokenText, script.id);
+      const spokenText = `${bodyText} ${this.appConfig.closingLine}`
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Always produce the default Edge voice video (video.mp4).
+      const edgeTts = await this.tts.synthesize(spokenText, script.id, {
+        forceProvider: 'edge',
+        audioFileName: 'narration.mp3',
+      });
       const videoPath = await this.video.render({
         script,
-        audioPath: ttsResult.audioPath,
-        durationMs: ttsResult.durationMs,
-        words: ttsResult.words,
+        audioPath: edgeTts.audioPath,
+        durationMs: edgeTts.durationMs,
+        words: edgeTts.words,
+        fileName: 'video.mp4',
       });
+
+      // Second copy with local clone when the voice pack / sample is ready.
+      let cloneVideoPath: string | undefined;
+      let cloneTts: TtsResult | undefined;
+      let cloneError: string | undefined;
+      const localHealth = await this.tts.getLocalHealth();
+      if (localHealth?.reachable && localHealth.voiceReady) {
+        try {
+          cloneTts = await this.tts.synthesize(spokenText, script.id, {
+            forceProvider: 'local',
+            audioFileName: 'narration-clone.mp3',
+          });
+          cloneVideoPath = await this.video.render({
+            script,
+            audioPath: cloneTts.audioPath,
+            durationMs: cloneTts.durationMs,
+            words: cloneTts.words,
+            fileName: 'video-clone.mp4',
+            forceReuseImages: true,
+          });
+          this.logger.log(`Clone video ready: ${cloneVideoPath}`);
+        } catch (error) {
+          cloneError =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Clone video skipped (${cloneError}); Edge video still available`,
+          );
+        }
+      } else {
+        cloneError = localHealth?.reachable
+          ? 'Local voice pack / sample not ready'
+          : `Local TTS unreachable (${localHealth?.detail ?? 'down'})`;
+        this.logger.warn(`Clone video skipped: ${cloneError}`);
+      }
 
       const outputDir = join(
         process.cwd(),
@@ -114,6 +153,7 @@ export class DailyPipelineService {
 
       const publishes: PublishResult[] = [];
 
+      // Social posts use the default Edge video.
       if (this.appConfig.skipPublish) {
         this.logger.warn('SKIP_PUBLISH=true — social publish skipped');
       } else {
@@ -137,6 +177,11 @@ export class DailyPipelineService {
             videoPath,
             threadsImagePath,
             youtubeThumbnailPath,
+            {
+              edgeVideoPath: videoPath,
+              cloneVideoPath,
+              cloneError,
+            },
           );
           publishes.push(emailResult);
         } catch (emailError) {
@@ -158,18 +203,22 @@ export class DailyPipelineService {
       });
 
       const emailed = publishes.some((p) => p.platform === 'email');
+      const ttsNote = cloneVideoPath
+        ? 'TTS=Edge + local clone (2 videos)'
+        : `TTS=Edge only (${cloneError ?? 'no clone'})`;
+      const baseMessage = this.appConfig.skipPublish
+        ? emailed
+          ? 'Generated video; emailed via Resend; social publish skipped'
+          : 'Generated video; publish skipped'
+        : emailed
+          ? 'Published to configured platforms + Resend email'
+          : 'Published to configured platforms';
       const result: PipelineRunResult = {
         status: 'posted',
         newsId: script.id,
         videoPath,
         publishes,
-        message: this.appConfig.skipPublish
-          ? emailed
-            ? 'Generated video; emailed via Resend; social publish skipped'
-            : 'Generated video; publish skipped'
-          : emailed
-            ? 'Published to configured platforms + Resend email'
-            : 'Published to configured platforms',
+        message: `${baseMessage}; ${ttsNote}`,
         startedAt,
         finishedAt: new Date().toISOString(),
       };
@@ -191,7 +240,8 @@ export class DailyPipelineService {
     }
   }
 
-  getStatus() {
+  async getStatus() {
+    const localTts = await this.tts.getLocalHealth();
     return {
       running: this.running,
       lastRun: this.store.getLastRun(),
@@ -202,6 +252,12 @@ export class DailyPipelineService {
       skipPublish: this.appConfig.skipPublish,
       skipEmail: this.appConfig.skipEmail,
       resendConfigured: this.appConfig.isResendConfigured,
+      tts: {
+        configuredProvider: this.appConfig.ttsProvider,
+        localVoice: this.appConfig.localTtsVoice,
+        lastSynthesize: this.tts.getLastResultMeta(),
+        local: localTts,
+      },
     };
   }
 }

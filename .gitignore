@@ -9,6 +9,17 @@ data/
 .remotion/
 workers/wan/.venv/
 workers/wan/__pycache__/
+workers/tts/.venv/
+workers/tts/__pycache__/
+workers/tts/voices/*
+!workers/tts/voices/.gitkeep
+!workers/tts/voices/script.txt
+!workers/tts/voices/scripts/
+!workers/tts/voices/scripts/**
+workers/tts/voices/everton/
+workers/tts/voices/everton/**
 *.pyc
 .cache/
 logs/
+web/voice-pack/node_modules/
+web/voice-pack/dist/

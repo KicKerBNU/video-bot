@@ -4,6 +4,7 @@ import { join } from 'path';
 import { EdgeTTS } from 'edge-tts-universal';
 import { AppConfigService } from '../config/app-config.service';
 import { TtsResult, WordTimestamp } from '../common/types';
+import { LocalTtsClient, LocalTtsHealth } from './local-tts.client';
 
 interface EdgeSubtitleCue {
   offset: number;
@@ -11,15 +12,123 @@ interface EdgeSubtitleCue {
   text: string;
 }
 
+export type TtsForceProvider = 'edge' | 'local';
+
 @Injectable()
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
+  private lastResultMeta: {
+    provider: 'local' | 'edge';
+    fallbackReason?: string;
+    at: string;
+  } | null = null;
 
-  constructor(private readonly appConfig: AppConfigService) {}
+  constructor(
+    private readonly appConfig: AppConfigService,
+    private readonly localTts: LocalTtsClient,
+  ) {}
 
-  async synthesize(text: string, newsId: string): Promise<TtsResult> {
+  getLastResultMeta() {
+    return this.lastResultMeta;
+  }
+
+  async getLocalHealth(): Promise<LocalTtsHealth | null> {
+    return this.localTts.health();
+  }
+
+  async synthesize(
+    text: string,
+    newsId: string,
+    options?: {
+      forceProvider?: TtsForceProvider;
+      audioFileName?: string;
+    },
+  ): Promise<TtsResult> {
+    const force = options?.forceProvider;
+    const audioFileName = options?.audioFileName;
+
+    const wantLocal =
+      force === 'local' ||
+      (force !== 'edge' && this.appConfig.ttsProvider === 'local');
+
+    if (wantLocal) {
+      const health = await this.localTts.health();
+      if (!health.reachable) {
+        const reason = `Local TTS worker unreachable (${health.detail ?? 'down'})`;
+        if (force === 'local') {
+          throw new Error(reason);
+        }
+        this.logger.error(`${reason}; falling back to Edge`);
+        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+      }
+      if (!health.voiceReady) {
+        const reason = `Local TTS voice sample missing (need workers/tts/voices/${this.appConfig.localTtsVoice}.wav or voice pack)`;
+        if (force === 'local') {
+          throw new Error(reason);
+        }
+        this.logger.error(`${reason}; falling back to Edge`);
+        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+      }
+
+      try {
+        return await this.synthesizeLocal(text, newsId, audioFileName);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const reason = `Local TTS failed (${message})`;
+        if (force === 'local') {
+          throw error instanceof Error ? error : new Error(reason);
+        }
+        this.logger.error(`${reason}; falling back to Edge`);
+        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+      }
+    }
+
+    return this.synthesizeEdge(text, newsId, undefined, audioFileName);
+  }
+
+  private async synthesizeLocal(
+    text: string,
+    newsId: string,
+    audioFileName = 'narration-clone.mp3',
+  ): Promise<TtsResult> {
+    const voice = this.appConfig.localTtsVoice;
+    this.logger.log(`Synthesizing local TTS (${voice}) for news ${newsId}`);
+
+    const result = await this.localTts.synthesize(text, voice);
+    const outputDir = join(process.cwd(), this.appConfig.outputDir, newsId);
+    await mkdir(outputDir, { recursive: true });
+    const audioPath = join(outputDir, audioFileName);
+    await writeFile(audioPath, result.audio);
+
+    this.logger.log(
+      `Local TTS ready: ${result.words.length} words, ~${Math.round(result.durationMs / 1000)}s`,
+    );
+
+    this.lastResultMeta = {
+      provider: 'local',
+      at: new Date().toISOString(),
+    };
+
+    return {
+      audioPath,
+      durationMs: result.durationMs,
+      words: result.words,
+      provider: 'local',
+    };
+  }
+
+  private async synthesizeEdge(
+    text: string,
+    newsId: string,
+    fallbackReason?: string,
+    audioFileName = 'narration.mp3',
+  ): Promise<TtsResult> {
     const voice = this.appConfig.edgeTtsVoice;
-    this.logger.log(`Synthesizing Edge TTS (${voice}) for news ${newsId}`);
+    this.logger.log(
+      `Synthesizing Edge TTS (${voice}) for news ${newsId}${
+        fallbackReason ? ` [fallback: ${fallbackReason}]` : ''
+      }`,
+    );
 
     const tts = new EdgeTTS(text, voice);
     const result = await tts.synthesize();
@@ -27,7 +136,7 @@ export class TtsService {
 
     const outputDir = join(process.cwd(), this.appConfig.outputDir, newsId);
     await mkdir(outputDir, { recursive: true });
-    const audioPath = join(outputDir, 'narration.mp3');
+    const audioPath = join(outputDir, audioFileName);
     await writeFile(audioPath, audioBuffer);
 
     const cues = (result.subtitle ?? []) as EdgeSubtitleCue[];
@@ -41,7 +150,19 @@ export class TtsService {
       `TTS ready: ${words.length} words, ~${Math.round(durationMs / 1000)}s`,
     );
 
-    return { audioPath, durationMs, words };
+    this.lastResultMeta = {
+      provider: 'edge',
+      fallbackReason,
+      at: new Date().toISOString(),
+    };
+
+    return {
+      audioPath,
+      durationMs,
+      words,
+      provider: 'edge',
+      fallbackReason,
+    };
   }
 
   /** Edge offsets/durations are in 100-nanosecond units. */

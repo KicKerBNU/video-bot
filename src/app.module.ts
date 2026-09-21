@@ -7,6 +7,7 @@ import { TtsModule } from './tts/tts.module';
 import { VideoModule } from './video/video.module';
 import { PublishersModule } from './publishers/publishers.module';
 import { PipelineModule } from './pipeline/pipeline.module';
+import { VoicePackModule } from './voice-pack/voice-pack.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PipelineModule } from './pipeline/pipeline.module';
     VideoModule,
     PublishersModule,
     PipelineModule,
+    VoicePackModule,
   ],
 })
 export class AppModule {}

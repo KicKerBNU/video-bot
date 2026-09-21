@@ -1,0 +1,1 @@
+A hospital trial used GPT class models to draft patient notes. Doctors edited thirty percent less text than last year's pilot.

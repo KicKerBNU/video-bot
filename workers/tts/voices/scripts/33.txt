@@ -1,0 +1,1 @@
+A biotech team used diffusion models to propose three drug candidates in six weeks. Lab validation is the next gate.

@@ -1,0 +1,1 @@
+A university benchmark scored agents on booking flights with real dollars capped at fifty dollars per task. Success hit sixty two percent.

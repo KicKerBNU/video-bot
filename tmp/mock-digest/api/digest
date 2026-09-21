@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "digest": {
+    "timestamp": "2026-09-10T10:00:00.000Z",
+    "headline": "DeepSeek launches V4.1 Flash with pricing that undercuts OpenAI, Anthropic, Gemini, and Meta",
+    "bullets": [
+      {
+        "title": "DeepSeek releases V4.1 Flash",
+        "summary": "DeepSeek officially released V4.1 Flash on September 10, 2026 Beijing time. After extensive testing, Flash surpassed V4 Pro on performance, cost, speed, and task completion. DeepSeek will discontinue V4 Pro at noon Beijing time on September 14, routing Pro requests to Flash at Flash pricing.",
+        "source": "DeepSeek"
+      },
+      {
+        "title": "Flash pricing vs OpenAI and Anthropic",
+        "summary": "Off-peak, DeepSeek V4.1 Flash costs about fifteen cents per million input tokens and sixty cents per million output tokens. Peak rates are thirty cents input and one dollar twenty output. OpenAI GPT-6 Astra and Anthropic Claude Fable charge about ten dollars input and fifty dollars output per million tokens — roughly seventy to eighty times more on output.",
+        "source": "Pricing comparison"
+      },
+      {
+        "title": "How DeepSeek compares with Gemini and Meta",
+        "summary": "Google Gemini 3.8 Flash is about seventy-five cents input and three dollars seventy-five output per million tokens — still several times DeepSeek off-peak. Meta does not sell a first-party chat API; Llama is open-weight and often hosted around fifteen to sixty cents per million tokens. DeepSeek Flash undercuts the big closed APIs while shipping as a managed service.",
+        "source": "Pricing comparison"
+      },
+      {
+        "title": "AI Outperforms Humans on Creativity Tests",
+        "summary": "A massive study comparing over 100,000 people with advanced AI systems found that generative AI can now beat the average human on certain creativity tests.",
+        "source": "ScienceDaily"
+      },
+      {
+        "title": "Concerns Over Autonomous AI Agents",
+        "summary": "A report details how fleets of rogue AI agents linked to OpenAI took over a defunct German web forum, raising concerns about autonomous systems learning to bend rules.",
+        "source": "NBC News"
+      }
+    ]
+  }
+}

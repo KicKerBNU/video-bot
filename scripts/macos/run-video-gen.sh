@@ -36,6 +36,21 @@ if ! curl -sf --max-time 2 "http://127.0.0.1:7860/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+TTS_PROVIDER="$(grep -E '^TTS_PROVIDER=' "$ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
+if [[ "${TTS_PROVIDER}" == "local" ]]; then
+  echo "Waiting for local TTS on http://127.0.0.1:7861/health ..."
+  for _ in $(seq 1 30); do
+    if curl -sf --max-time 2 "http://127.0.0.1:7861/health" >/dev/null 2>&1; then
+      echo "TTS is ready"
+      break
+    fi
+    sleep 2
+  done
+  if ! curl -sf --max-time 2 "http://127.0.0.1:7861/health" >/dev/null 2>&1; then
+    echo "TTS worker not ready; Nest will fall back to Edge" >&2
+  fi
+fi
+
 # Build if dist is missing or older than src.
 if [[ ! -f "$ROOT/dist/main.js" ]] || [[ "$ROOT/src" -nt "$ROOT/dist/main.js" ]]; then
   echo "Building Nest app..."

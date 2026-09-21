@@ -31,6 +31,10 @@ export interface TtsResult {
   audioPath: string;
   durationMs: number;
   words: WordTimestamp[];
+  /** Which engine produced the audio for this run. */
+  provider: 'local' | 'edge';
+  /** Set when TTS_PROVIDER=local but Edge was used instead. */
+  fallbackReason?: string;
 }
 
 export interface CaptionChunk {

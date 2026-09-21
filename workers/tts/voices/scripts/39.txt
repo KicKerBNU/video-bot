@@ -1,0 +1,1 @@
+Security vendors detected prompt injection inside PDF resumes. Recruiting tools now strip hidden text before models read applications.

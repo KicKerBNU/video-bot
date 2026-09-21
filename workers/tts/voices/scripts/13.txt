@@ -1,0 +1,1 @@
+OpenAI cut batch API prices by forty percent for overnight jobs. Startups say that changes unit economics for summarization pipelines.

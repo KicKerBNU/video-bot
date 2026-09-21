@@ -1,0 +1,1 @@
+Meta kept Llama open weight while rivals locked APIs. Developers still prefer open checkpoints for fine tuning on private data.

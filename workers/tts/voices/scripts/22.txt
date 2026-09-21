@@ -1,0 +1,1 @@
+Amazon said Bedrock traffic doubled after adding Claude and Llama side by side. Customers switch models per request without rewriting apps.

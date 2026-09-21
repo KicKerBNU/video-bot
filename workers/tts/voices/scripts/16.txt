@@ -1,0 +1,1 @@
+Meta open sourced a new multimodal Llama that reads charts and screenshots. License terms still block some large commercial clouds.

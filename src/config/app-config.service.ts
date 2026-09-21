@@ -25,6 +25,31 @@ export class AppConfigService {
     );
   }
 
+  /** `edge` (Railway / default) or `local` (Mac XTTS clone worker). */
+  get ttsProvider(): 'edge' | 'local' {
+    const value = (this.config.get<string>('TTS_PROVIDER') ?? 'edge')
+      .trim()
+      .toLowerCase();
+    return value === 'local' ? 'local' : 'edge';
+  }
+
+  get localTtsUrl(): string {
+    return (
+      this.config.get<string>('LOCAL_TTS_URL') ?? 'http://127.0.0.1:7861'
+    ).replace(/\/$/, '');
+  }
+
+  get localTtsTimeoutMs(): number {
+    return Number(
+      this.config.get<string>('LOCAL_TTS_TIMEOUT_MS') ?? 600_000,
+    );
+  }
+
+  /** Voice sample stem under workers/tts/voices/<name>.wav */
+  get localTtsVoice(): string {
+    return this.config.get<string>('LOCAL_TTS_VOICE') ?? 'everton';
+  }
+
   get imageProvider(): 'wan' | 'huggingface' | 'kling' | 'openverse' {
     const value = (this.config.get<string>('IMAGE_PROVIDER') ?? 'wan')
       .trim()

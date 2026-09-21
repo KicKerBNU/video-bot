@@ -41,8 +41,9 @@ export class ImageService {
   async prepareSegmentImages(params: {
     segments: ScriptSegment[];
     outputDir: string;
+    forceReuseImages?: boolean;
   }): Promise<PreparedImage[]> {
-    const { segments, outputDir } = params;
+    const { segments, outputDir, forceReuseImages } = params;
     const imagesDir = join(outputDir, 'images');
     await mkdir(imagesDir, { recursive: true });
 
@@ -68,7 +69,8 @@ export class ImageService {
 
     for (const [index, segment] of segments.entries()) {
       const target = join(imagesDir, `segment-${index}-${segment.id}.jpg`);
-      const reuseImages = this.appConfig.reuseImages;
+      const reuseImages =
+        forceReuseImages === true || this.appConfig.reuseImages;
 
       if (reuseImages) {
         try {

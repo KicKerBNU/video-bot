@@ -1,0 +1,1 @@
+NVIDIA reported one point eight trillion transistors on a new inference chip. Data centers say power, not silicon, is the bottleneck now.

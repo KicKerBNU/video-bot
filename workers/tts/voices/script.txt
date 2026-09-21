@@ -1,0 +1,11 @@
+Hello, this is the ZanshinAI daily briefing. I am recording this sample so the video bot can clone my voice for AI news narration.
+
+Today, OpenAI, Google DeepMind, Anthropic, Meta, and Microsoft all shipped updates. NVIDIA reported 1.8 trillion transistors on a new chip. DeepSeek priced Flash at fifteen cents per million input tokens and sixty cents per million output tokens, undercutting GPT and Claude by about seventy times on output.
+
+On March twelfth, 2026, Gemini 3.8 Flash charged seventy-five cents input and three dollars seventy-five output. Llama stayed open-weight. Researchers said generative AI now beats the average human on some creativity tests, while reports warned about autonomous agents bending rules on a German web forum.
+
+Numbers you will hear often: 2026, 500 billion, 1.8 trillion, ten dollars, fifty dollars, one hundred thousand people.
+
+Speak clearly. Keep a steady news pace. End with the closer.
+
+That's all for today's news on ZanshinAI.

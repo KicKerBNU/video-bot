@@ -1,0 +1,1 @@
+Cloud GPUs spiked to twelve dollars an hour during a training rush. Spot capacity dried up across three major regions.

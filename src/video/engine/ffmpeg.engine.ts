@@ -27,6 +27,7 @@ export interface FfmpegRenderInput {
   words: WordTimestamp[];
   outputDir: string;
   outputPath: string;
+  forceReuseImages?: boolean;
 }
 
 interface SlideOverlay {
@@ -79,6 +80,7 @@ export class FfmpegVideoEngine {
     const prepared = await this.images.prepareSegmentImages({
       segments,
       outputDir,
+      forceReuseImages: input.forceReuseImages,
     });
 
     const imageBySegment = new Map(
@@ -119,11 +121,12 @@ export class FfmpegVideoEngine {
       watermarkPath,
       veilPath,
       backgroundPath,
+      outputFileName: basename(outputPath),
     });
     await writeFile(filterScriptPath, filterScript, 'utf8');
 
     this.logger.log(
-      `Rendering image slideshow (${VIDEO_WIDTH}x${VIDEO_HEIGHT} @ ${VIDEO_FPS}fps, ${totalSeconds.toFixed(1)}s, ${slides.length} slides, ${captionOverlays.length} captions)`,
+      `Rendering image slideshow (${VIDEO_WIDTH}x${VIDEO_HEIGHT} @ ${VIDEO_FPS}fps, ${totalSeconds.toFixed(1)}s, ${slides.length} slides, ${captionOverlays.length} captions) → ${basename(outputPath)}`,
     );
 
     await this.runFfmpeg(args, false, outputDir);
@@ -156,6 +159,7 @@ export class FfmpegVideoEngine {
     watermarkPath: string;
     veilPath: string;
     backgroundPath: string;
+    outputFileName: string;
   }): { args: string[]; filterScript: string } {
     const {
       audioPath,
@@ -166,6 +170,7 @@ export class FfmpegVideoEngine {
       watermarkPath,
       veilPath,
       backgroundPath,
+      outputFileName,
     } = params;
 
     const args: string[] = [
@@ -302,7 +307,7 @@ export class FfmpegVideoEngine {
       '-shortest',
       '-movflags',
       '+faststart',
-      'video.mp4',
+      outputFileName,
     );
 
     return { args, filterScript: scriptLines.join(';\n') };

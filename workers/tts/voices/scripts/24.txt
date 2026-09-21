@@ -1,0 +1,1 @@
+A new paper timed large language models against professional translators. Models won on speed, humans still led on legal nuance.
