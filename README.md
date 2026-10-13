@@ -2,6 +2,9 @@
 
 NestJS service that fetches a daily AI news script, renders a vertical TikTok/Reels-style video (voiceover + kinetic captions), and auto-posts to Twitter/X and TikTok.
 
+## Voice
+ Microsoft Edge TTS is used by default. fallback to Kokoro-82M (local) if Edge is not available.
+
 ## Setup
 
 ```bash
@@ -104,39 +107,36 @@ Default voice: `EDGE_TTS_VOICE=en-US-GuyNeural` with `TTS_PROVIDER=edge`. Railwa
 
 ### Local cloned voice (Mac)
 
-XTTS v2 zero-shot clone with Whisper word timestamps. Quality comes from a **voice pack** of many short, clean takes (multi-reference), not one long file. Separate venv/port from Wan (`:7861`, lazy-load). XTTS is [CPML](https://coqui.ai/cpml) (non-commercial unless you have a Coqui license).
+XTTS v2 zero-shot clone with Whisper word timestamps. Quality comes from **your local recordings** only (multi-reference pack under `workers/tts/voices/everton/pack/`). Prefer longer takes; short clips are optional fill. Separate venv/port from Wan (`:7861`, lazy-load). XTTS is [CPML](https://coqui.ai/cpml) (non-commercial unless you have a Coqui license).
+
+When Microsoft Edge TTS is blocked (HTTP 403), the default track falls back to local **Kokoro-82M** (`am_michael`) — free, offline, no API key:
+
+```bash
+yarn tts:kokoro:setup   # once: pip + ~310MB ONNX models
+# then restart the TTS LaunchAgent / yarn tts:serve
+```
 
 #### Voice pack web recorder (recommended)
 
 Vue UI with Start / Finish, browser mic, and server-side progress so you can stop mid-way and continue the next day:
 
 ```bash
-yarn tts:scripts          # ensure 40 scripts exist
-yarn build && yarn start  # Nest API on :3000 (or use LaunchAgent)
-yarn voice:dev            # Vue UI → http://127.0.0.1:5173/voice/
+yarn tts:scripts              # 40 short scripts
+yarn tts:scripts:long         # 20 long-form scripts (better for clone quality)
+yarn tts:scripts:focus        # 15 focus drills (US, Nvidia, closer, money)
+yarn build && yarn start      # Nest API on :3000 (or use LaunchAgent)
+yarn voice:dev                # Vue UI → http://127.0.0.1:5173/voice/
 # or production UI:
-yarn voice:build          # then open http://localhost:3000/voice/
+yarn voice:build              # then open http://localhost:3000/voice/
 ```
 
-Each Finish uploads audio → `workers/tts/voices/everton/pack/NN.wav` and updates `progress.json`. Completed scripts stay marked done across sessions. After uploads, pack QA refreshes `approved.json` for XTTS multi-ref (top 16).
-
-#### Terminal batch recorder (optional)
-
-```bash
-yarn tts:setup
-yarn tts:record-pack                 # opens Terminal.app — record/resume 01–40
-yarn tts:record-pack --status
-yarn tts:pack-qa
-yarn tts:serve                       # or yarn service:install
-yarn tts:test
-```
-
-Enable Microphone for **the browser** (web UI) or **Terminal** (batch script).
+Use the **Long form** tab first: longer paragraphs, minimum ~22s before Finish is enabled. Each save writes `workers/tts/voices/everton/pack/*.wav` and refreshes `approved.json` (top refs, preferring long clips). Short tab remains for the original 40.
 
 **Good take checklist:**
 - Quiet room, same mic distance, no music / HVAC rumble
 - Speak each script clearly at a steady news-host pace
-- Use Re-record in the UI (or `yarn tts:record-pack --only 07`) for weak takes
+- Prefer Long form over short clips for likeness
+- Use Re-record for weak takes
 
 In `.env` on this Mac only:
 ```bash
@@ -145,7 +145,7 @@ LOCAL_TTS_URL=http://127.0.0.1:7861
 LOCAL_TTS_VOICE=everton
 ```
 
-If the worker is down or no sample/pack exists, the daily email still includes `video-edge.mp4` (default Edge voice) and notes that the clone was skipped. Social posts use the Edge video. Leave `TTS_PROVIDER=edge` on Railway (clone only runs when the Mac TTS worker is reachable).
+If the worker is down or no sample/pack exists, the daily email still includes `video-edge.mp4` (default Edge voice) and notes that the clone was skipped. Social posts use the Edge video.
 
 ### Local Wan (recommended)
 

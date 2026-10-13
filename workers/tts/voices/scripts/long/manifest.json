@@ -1,0 +1,187 @@
+{
+  "voice": "everton",
+  "mode": "long",
+  "count": 20,
+  "scripts": [
+    {
+      "id": "L01",
+      "file": "long/L01.txt",
+      "words": 69,
+      "recordSeconds": 38,
+      "minSeconds": 22,
+      "hasCloser": true,
+      "mode": "long"
+    },
+    {
+      "id": "L02",
+      "file": "long/L02.txt",
+      "words": 65,
+      "recordSeconds": 37,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L03",
+      "file": "long/L03.txt",
+      "words": 69,
+      "recordSeconds": 38,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L04",
+      "file": "long/L04.txt",
+      "words": 66,
+      "recordSeconds": 37,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L05",
+      "file": "long/L05.txt",
+      "words": 61,
+      "recordSeconds": 35,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L06",
+      "file": "long/L06.txt",
+      "words": 60,
+      "recordSeconds": 35,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L07",
+      "file": "long/L07.txt",
+      "words": 52,
+      "recordSeconds": 31,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L08",
+      "file": "long/L08.txt",
+      "words": 64,
+      "recordSeconds": 36,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L09",
+      "file": "long/L09.txt",
+      "words": 52,
+      "recordSeconds": 31,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L10",
+      "file": "long/L10.txt",
+      "words": 60,
+      "recordSeconds": 35,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L11",
+      "file": "long/L11.txt",
+      "words": 59,
+      "recordSeconds": 34,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L12",
+      "file": "long/L12.txt",
+      "words": 60,
+      "recordSeconds": 35,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L13",
+      "file": "long/L13.txt",
+      "words": 58,
+      "recordSeconds": 34,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L14",
+      "file": "long/L14.txt",
+      "words": 54,
+      "recordSeconds": 32,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L15",
+      "file": "long/L15.txt",
+      "words": 49,
+      "recordSeconds": 30,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L16",
+      "file": "long/L16.txt",
+      "words": 49,
+      "recordSeconds": 30,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L17",
+      "file": "long/L17.txt",
+      "words": 45,
+      "recordSeconds": 28,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L18",
+      "file": "long/L18.txt",
+      "words": 50,
+      "recordSeconds": 30,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L19",
+      "file": "long/L19.txt",
+      "words": 43,
+      "recordSeconds": 28,
+      "minSeconds": 22,
+      "hasCloser": false,
+      "mode": "long"
+    },
+    {
+      "id": "L20",
+      "file": "long/L20.txt",
+      "words": 45,
+      "recordSeconds": 28,
+      "minSeconds": 22,
+      "hasCloser": true,
+      "mode": "long"
+    }
+  ]
+}

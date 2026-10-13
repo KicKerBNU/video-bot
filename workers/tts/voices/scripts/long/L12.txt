@@ -1,0 +1,1 @@
+Open weights for a popular code model hit about one million downloads in forty eight hours, and maintainers warned about license confusion in forks. Hugging Face mirrored a large research dump during a takedown fight, and lawyers still argue whether weights count as speech. If you ship open checkpoints, state the license in the first sentence of your release note.

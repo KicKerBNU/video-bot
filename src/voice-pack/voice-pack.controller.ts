@@ -4,6 +4,7 @@ import {
   Post,
   Delete,
   Param,
+  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -13,15 +14,23 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
-import { VoicePackService } from './voice-pack.service';
+import {
+  VoicePackService,
+  VoiceScriptMode,
+} from './voice-pack.service';
 
 @Controller('voice-pack')
 export class VoicePackController {
   constructor(private readonly voicePack: VoicePackService) {}
 
   @Get('scripts')
-  listScripts() {
-    return this.voicePack.listScripts();
+  listScripts(@Query('mode') mode?: string) {
+    const normalized = (mode ?? 'all').toLowerCase();
+    const allowed: VoiceScriptMode[] = ['short', 'long', 'focus', 'all'];
+    const selected = allowed.includes(normalized as VoiceScriptMode)
+      ? (normalized as VoiceScriptMode)
+      : 'all';
+    return this.voicePack.listScripts(selected);
   }
 
   @Get('audio/:id')
@@ -36,7 +45,7 @@ export class VoicePackController {
   @UseInterceptors(
     FileInterceptor('audio', {
       storage: memoryStorage(),
-      limits: { fileSize: 25 * 1024 * 1024 },
+      limits: { fileSize: 40 * 1024 * 1024 },
     }),
   )
   async upload(
@@ -52,7 +61,7 @@ export class VoicePackController {
       file.buffer,
       file.originalname || 'take.webm',
     );
-    const list = await this.voicePack.listScripts();
+    const list = await this.voicePack.listScripts(item.mode);
     return {
       ok: true,
       item,
@@ -65,7 +74,7 @@ export class VoicePackController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.voicePack.deleteRecording(id);
-    return this.voicePack.listScripts();
+    return this.voicePack.listScripts('all');
   }
 
   @Post('rebuild')

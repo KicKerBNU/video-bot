@@ -7,6 +7,7 @@ import { StoreService } from '../store/store.service';
 import { TtsService } from '../tts/tts.service';
 import { VideoService } from '../video/video.service';
 import { truncateScriptForShortForm } from '../video/caption-utils';
+import { toSpeakableText } from '../tts/speakable-text';
 import { TwitterPublisherService } from '../publishers/twitter.service';
 import { TikTokPublisherService } from '../publishers/tiktok.service';
 import { ResendEmailService } from '../publishers/resend-email.service';
@@ -65,24 +66,32 @@ export class DailyPipelineService {
       const bodyText = truncateScriptForShortForm(
         [script.hook, script.body].filter(Boolean).join('. '),
       );
-      const spokenText = `${bodyText} ${this.appConfig.closingLine}`
-        .replace(/\s+/g, ' ')
-        .trim();
+      // Expand $100M / 5.5 / dates so XTTS (and Kokoro) don't garble them.
+      const spokenText = toSpeakableText(
+        `${bodyText} ${this.appConfig.closingLine}`.replace(/\s+/g, ' ').trim(),
+      );
 
-      // Always produce the default Edge voice video (video.mp4).
+      // Track 1: default voice → video.mp4 (emailed as video-edge.mp4).
+      // Edge first; if Microsoft blocks it, Kokoro-82M — never the clone.
       const edgeTts = await this.tts.synthesize(spokenText, script.id, {
         forceProvider: 'edge',
         audioFileName: 'narration.mp3',
       });
+      if (edgeTts.provider !== 'edge') {
+        this.logger.warn(
+          `Default-voice track using ${edgeTts.provider} (${edgeTts.fallbackReason ?? 'Edge unavailable'})`,
+        );
+      }
       const videoPath = await this.video.render({
         script,
         audioPath: edgeTts.audioPath,
         durationMs: edgeTts.durationMs,
         words: edgeTts.words,
         fileName: 'video.mp4',
+        forceReuseImages: true,
       });
 
-      // Second copy with local clone when the voice pack / sample is ready.
+      // Track 2: local clone → video-clone.mp4 (always separate).
       let cloneVideoPath: string | undefined;
       let cloneTts: TtsResult | undefined;
       let cloneError: string | undefined;
@@ -106,7 +115,7 @@ export class DailyPipelineService {
           cloneError =
             error instanceof Error ? error.message : String(error);
           this.logger.warn(
-            `Clone video skipped (${cloneError}); Edge video still available`,
+            `Clone video skipped (${cloneError}); default-voice video still available`,
           );
         }
       } else {
@@ -203,9 +212,15 @@ export class DailyPipelineService {
       });
 
       const emailed = publishes.some((p) => p.platform === 'email');
+      const defaultLabel =
+        edgeTts.provider === 'edge'
+          ? 'Edge'
+          : edgeTts.provider === 'kokoro'
+            ? 'Kokoro (Edge blocked)'
+            : edgeTts.provider;
       const ttsNote = cloneVideoPath
-        ? 'TTS=Edge + local clone (2 videos)'
-        : `TTS=Edge only (${cloneError ?? 'no clone'})`;
+        ? `TTS=${defaultLabel} + local clone (2 videos)`
+        : `TTS=${defaultLabel} only (${cloneError ?? 'no clone'})`;
       const baseMessage = this.appConfig.skipPublish
         ? emailed
           ? 'Generated video; emailed via Resend; social publish skipped'

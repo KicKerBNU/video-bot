@@ -4,16 +4,30 @@ import { constants } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 
+export type VoiceScriptMode = 'short' | 'long' | 'focus' | 'all';
+
 export interface VoiceScriptItem {
   id: string;
   text: string;
   words: number;
   recordSeconds: number;
+  minSeconds: number;
   hasCloser: boolean;
+  mode: 'short' | 'long' | 'focus';
   completed: boolean;
   durationSec: number | null;
   recordedAt: string | null;
   audioUrl: string | null;
+}
+
+interface ManifestScript {
+  id: string;
+  file: string;
+  words: number;
+  recordSeconds: number;
+  minSeconds?: number;
+  hasCloser: boolean;
+  mode?: 'short' | 'long' | 'focus';
 }
 
 interface ProgressFile {
@@ -37,36 +51,60 @@ export class VoicePackService {
     'workers/tts/voices/everton/pack',
   );
   private readonly progressPath = join(this.packDir, 'progress.json');
-  private readonly manifestPath = join(this.scriptsDir, 'manifest.json');
+  private readonly shortManifestPath = join(this.scriptsDir, 'manifest.json');
+  private readonly longManifestPath = join(
+    this.scriptsDir,
+    'long',
+    'manifest.json',
+  );
+  private readonly focusManifestPath = join(
+    this.scriptsDir,
+    'focus',
+    'manifest.json',
+  );
 
-  async listScripts(): Promise<{
+  async listScripts(mode: VoiceScriptMode = 'all'): Promise<{
     voice: string;
+    mode: VoiceScriptMode;
     total: number;
     completedCount: number;
     nextId: string | null;
     scripts: VoiceScriptItem[];
   }> {
-    const manifest = await this.readManifest();
+    const entries = await this.readAllManifestScripts();
     const progress = await this.readProgress();
     const scripts: VoiceScriptItem[] = [];
 
-    for (const entry of manifest.scripts) {
-      const text = (
-        await readFile(join(this.scriptsDir, entry.file), 'utf8')
-      ).trim();
+    for (const entry of entries) {
+      const scriptMode =
+        entry.mode === 'long'
+          ? 'long'
+          : entry.mode === 'focus'
+            ? 'focus'
+            : 'short';
+      if (mode !== 'all' && scriptMode !== mode) {
+        continue;
+      }
+      const textPath = join(this.scriptsDir, entry.file);
+      const text = (await readFile(textPath, 'utf8')).trim();
       const wavPath = join(this.packDir, `${entry.id}.wav`);
       const exists = await this.fileExists(wavPath);
       const meta = progress.completed[entry.id];
       const durationSec = exists
         ? (meta?.durationSec ?? (await this.probeDuration(wavPath)))
         : null;
+      const minSeconds =
+        entry.minSeconds ??
+        (scriptMode === 'long' ? 22 : scriptMode === 'focus' ? 20 : 12);
 
       scripts.push({
         id: entry.id,
         text,
         words: entry.words,
         recordSeconds: entry.recordSeconds,
+        minSeconds,
         hasCloser: entry.hasCloser,
+        mode: scriptMode,
         completed: exists,
         durationSec,
         recordedAt: meta?.at ?? null,
@@ -78,7 +116,8 @@ export class VoicePackService {
     const next = scripts.find((s) => !s.completed);
 
     return {
-      voice: manifest.voice,
+      voice: 'everton',
+      mode,
       total: scripts.length,
       completedCount,
       nextId: next?.id ?? null,
@@ -92,14 +131,24 @@ export class VoicePackService {
     originalName: string,
   ): Promise<VoiceScriptItem> {
     const normalized = this.normalizeId(id);
-    const manifest = await this.readManifest();
-    const entry = manifest.scripts.find((s) => s.id === normalized);
+    const entries = await this.readAllManifestScripts();
+    const entry = entries.find((s) => s.id === normalized);
     if (!entry) {
       throw new NotFoundException(`Unknown script id ${normalized}`);
     }
     if (!buffer?.length) {
       throw new BadRequestException('Empty audio upload');
     }
+
+    const scriptMode =
+      entry.mode === 'long'
+        ? 'long'
+        : entry.mode === 'focus'
+          ? 'focus'
+          : 'short';
+    const minSeconds =
+      entry.minSeconds ??
+      (scriptMode === 'long' ? 22 : scriptMode === 'focus' ? 20 : 12);
 
     await mkdir(this.packDir, { recursive: true });
     const ext = this.guessExt(originalName);
@@ -109,7 +158,6 @@ export class VoicePackService {
 
     await writeFile(rawPath, buffer);
     await this.convertToWav(rawPath, wavPath);
-    // Keep a raw copy as wav for pack-qa / debugging
     try {
       await writeFile(rawKeep, await readFile(wavPath));
     } catch {
@@ -118,10 +166,11 @@ export class VoicePackService {
     await unlink(rawPath).catch(() => undefined);
 
     const durationSec = await this.probeDuration(wavPath);
-    if (durationSec < 5) {
+    if (durationSec < minSeconds) {
       await unlink(wavPath).catch(() => undefined);
+      await unlink(rawKeep).catch(() => undefined);
       throw new BadRequestException(
-        `Recording too short (${durationSec.toFixed(1)}s). Hold Finish after you finish speaking.`,
+        `Recording too short (${durationSec.toFixed(1)}s). Need at least ${minSeconds}s — read the full script, then Finish.`,
       );
     }
 
@@ -138,12 +187,11 @@ export class VoicePackService {
       `${JSON.stringify(progress, null, 2)}\n`,
     );
 
-    // Fire-and-forget pack QA so XTTS multi-ref stays fresh
     void this.rebuildApproved().catch((err) =>
       this.logger.warn(`pack-qa after upload failed: ${String(err)}`),
     );
 
-    const list = await this.listScripts();
+    const list = await this.listScripts('all');
     const item = list.scripts.find((s) => s.id === normalized);
     if (!item) {
       throw new NotFoundException(normalized);
@@ -201,40 +249,50 @@ export class VoicePackService {
     });
   }
 
+  /** Accepts 01–40, L01–L20, or F01–F15. */
   private normalizeId(id: string): string {
-    const digits = id.replace(/\D/g, '');
+    const raw = id.trim().toUpperCase();
+    const longMatch = /^L0*(\d{1,2})$/.exec(raw);
+    if (longMatch) {
+      return `L${longMatch[1].padStart(2, '0')}`;
+    }
+    const focusMatch = /^F0*(\d{1,2})$/.exec(raw);
+    if (focusMatch) {
+      return `F${focusMatch[1].padStart(2, '0')}`;
+    }
+    const digits = raw.replace(/\D/g, '');
     if (!digits) {
       throw new BadRequestException('Invalid script id');
     }
     return digits.padStart(2, '0');
   }
 
-  private async readManifest(): Promise<{
-    voice: string;
-    scripts: Array<{
-      id: string;
-      file: string;
-      words: number;
-      recordSeconds: number;
-      hasCloser: boolean;
-    }>;
-  }> {
+  private async readAllManifestScripts(): Promise<ManifestScript[]> {
+    const short = await this.readManifestFile(this.shortManifestPath, 'short');
+    const long = await this.readManifestFile(this.longManifestPath, 'long');
+    const focus = await this.readManifestFile(this.focusManifestPath, 'focus');
+    return [...short, ...long, ...focus];
+  }
+
+  private async readManifestFile(
+    path: string,
+    fallbackMode: 'short' | 'long' | 'focus',
+  ): Promise<ManifestScript[]> {
     try {
-      const raw = await readFile(this.manifestPath, 'utf8');
-      return JSON.parse(raw) as {
-        voice: string;
-        scripts: Array<{
-          id: string;
-          file: string;
-          words: number;
-          recordSeconds: number;
-          hasCloser: boolean;
-        }>;
-      };
+      const raw = await readFile(path, 'utf8');
+      const parsed = JSON.parse(raw) as { scripts?: ManifestScript[] };
+      return (parsed.scripts ?? []).map((s) => ({
+        ...s,
+        mode: s.mode ?? fallbackMode,
+      }));
     } catch {
-      throw new NotFoundException(
-        'Script manifest missing — run yarn tts:scripts',
-      );
+      if (fallbackMode === 'short') {
+        throw new NotFoundException(
+          'Script manifest missing — run yarn tts:scripts',
+        );
+      }
+      this.logger.warn(`Manifest missing at ${path}`);
+      return [];
     }
   }
 

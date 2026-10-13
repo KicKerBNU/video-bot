@@ -32,8 +32,8 @@ export interface TtsResult {
   durationMs: number;
   words: WordTimestamp[];
   /** Which engine produced the audio for this run. */
-  provider: 'local' | 'edge';
-  /** Set when TTS_PROVIDER=local but Edge was used instead. */
+  provider: 'local' | 'edge' | 'kokoro';
+  /** Set when a fallback engine was used. */
   fallbackReason?: string;
 }
 

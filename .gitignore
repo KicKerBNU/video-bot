@@ -11,6 +11,7 @@ workers/wan/.venv/
 workers/wan/__pycache__/
 workers/tts/.venv/
 workers/tts/__pycache__/
+workers/tts/models/
 workers/tts/voices/*
 !workers/tts/voices/.gitkeep
 !workers/tts/voices/script.txt

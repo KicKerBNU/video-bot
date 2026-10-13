@@ -348,12 +348,12 @@ export class ResendEmailService {
       return '';
     }
     if (meta.cloneVideoPath) {
-      return `<p style="font-size:13px;background:#ecfdf5;border-radius:10px;padding:12px;margin:0 0 16px;color:#065f46;"><strong>Two videos attached:</strong> <code>video-edge.mp4</code> (default Edge voice) + <code>video-clone.mp4</code> (your clone).</p>`;
+      return `<p style="font-size:13px;background:#ecfdf5;border-radius:10px;padding:12px;margin:0 0 16px;color:#065f46;"><strong>Two videos attached:</strong> <code>video-edge.mp4</code> (default voice) + <code>video-clone.mp4</code> (your clone).</p>`;
     }
     const reason = meta.cloneError
       ? ` — ${escapeHtml(meta.cloneError)}`
       : '';
-    return `<p style="font-size:13px;background:#fefce8;border-radius:10px;padding:12px;margin:0 0 16px;color:#854d0e;"><strong>One video attached:</strong> <code>video-edge.mp4</code> (default Edge). Clone not available${reason}.</p>`;
+    return `<p style="font-size:13px;background:#fefce8;border-radius:10px;padding:12px;margin:0 0 16px;color:#854d0e;"><strong>One video attached:</strong> <code>video-edge.mp4</code> (default voice). Clone not available${reason}.</p>`;
   }
 
   private ttsBannerText(meta?: DailyVideoEmailMeta): string | null {
@@ -361,7 +361,7 @@ export class ResendEmailService {
       return null;
     }
     if (meta.cloneVideoPath) {
-      return 'VIDEOS: video-edge.mp4 (Edge) + video-clone.mp4 (clone)';
+      return 'VIDEOS: video-edge.mp4 (default) + video-clone.mp4 (clone)';
     }
     return `VIDEOS: video-edge.mp4 only${meta.cloneError ? ` — clone skipped: ${meta.cloneError}` : ''}`;
   }
@@ -373,7 +373,7 @@ export class ResendEmailService {
     html = true,
   ): string {
     const parts = [
-      'video-edge.mp4 (default Edge voice)',
+      'video-edge.mp4 (default voice)',
       ...(hasClone ? ['video-clone.mp4 (your clone voice)'] : []),
     ];
     if (hasThreadsImage) {

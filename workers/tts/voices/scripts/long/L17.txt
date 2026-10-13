@@ -1,0 +1,1 @@
+Local models on laptops are good enough for drafting and redacting before cloud calls. Teams keep sensitive paragraphs offline, then send a scrubbed prompt upstream. That hybrid pattern cuts leak risk without giving up frontier reasoning. Pronounce product names cleanly: Claude, Gemini, Llama, DeepSeek, Copilot.

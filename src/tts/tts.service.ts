@@ -18,7 +18,7 @@ export type TtsForceProvider = 'edge' | 'local';
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
   private lastResultMeta: {
-    provider: 'local' | 'edge';
+    provider: 'local' | 'edge' | 'kokoro';
     fallbackReason?: string;
     at: string;
   } | null = null;
@@ -59,7 +59,7 @@ export class TtsService {
           throw new Error(reason);
         }
         this.logger.error(`${reason}; falling back to Edge`);
-        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+        return this.synthesizeDefaultVoice(text, newsId, reason, audioFileName);
       }
       if (!health.voiceReady) {
         const reason = `Local TTS voice sample missing (need workers/tts/voices/${this.appConfig.localTtsVoice}.wav or voice pack)`;
@@ -67,7 +67,7 @@ export class TtsService {
           throw new Error(reason);
         }
         this.logger.error(`${reason}; falling back to Edge`);
-        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+        return this.synthesizeDefaultVoice(text, newsId, reason, audioFileName);
       }
 
       try {
@@ -79,11 +79,33 @@ export class TtsService {
           throw error instanceof Error ? error : new Error(reason);
         }
         this.logger.error(`${reason}; falling back to Edge`);
-        return this.synthesizeEdge(text, newsId, reason, audioFileName);
+        return this.synthesizeDefaultVoice(text, newsId, reason, audioFileName);
       }
     }
 
-    return this.synthesizeEdge(text, newsId, undefined, audioFileName);
+    return this.synthesizeDefaultVoice(text, newsId, undefined, audioFileName);
+  }
+
+  /**
+   * Default non-clone voice: Microsoft Edge first, then local Kokoro-82M
+   * (never the XTTS clone — that track is separate).
+   */
+  private async synthesizeDefaultVoice(
+    text: string,
+    newsId: string,
+    priorReason?: string,
+    audioFileName = 'narration.mp3',
+  ): Promise<TtsResult> {
+    try {
+      return await this.synthesizeEdge(text, newsId, priorReason, audioFileName);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const reason = priorReason
+        ? `${priorReason}; Edge also failed (${message})`
+        : `Edge TTS failed (${message})`;
+      this.logger.error(`${reason}; falling back to Kokoro-82M`);
+      return this.synthesizeKokoro(text, newsId, reason, audioFileName);
+    }
   }
 
   private async synthesizeLocal(
@@ -117,6 +139,51 @@ export class TtsService {
     };
   }
 
+  private async synthesizeKokoro(
+    text: string,
+    newsId: string,
+    fallbackReason: string,
+    audioFileName = 'narration.mp3',
+  ): Promise<TtsResult> {
+    this.logger.log(`Synthesizing Kokoro-82M for news ${newsId}`);
+
+    const health = await this.localTts.health();
+    if (!health.reachable) {
+      throw new Error(
+        `Kokoro unavailable — local TTS worker down (${health.detail ?? 'unreachable'})`,
+      );
+    }
+    if (!health.kokoroReady) {
+      throw new Error(
+        'Kokoro models missing — run yarn tts:kokoro:setup then restart the TTS worker',
+      );
+    }
+
+    const result = await this.localTts.synthesizeKokoro(text);
+    const outputDir = join(process.cwd(), this.appConfig.outputDir, newsId);
+    await mkdir(outputDir, { recursive: true });
+    const audioPath = join(outputDir, audioFileName);
+    await writeFile(audioPath, result.audio);
+
+    this.logger.log(
+      `Kokoro ready: ${result.words.length} words, ~${Math.round(result.durationMs / 1000)}s`,
+    );
+
+    this.lastResultMeta = {
+      provider: 'kokoro',
+      fallbackReason,
+      at: new Date().toISOString(),
+    };
+
+    return {
+      audioPath,
+      durationMs: result.durationMs,
+      words: result.words,
+      provider: 'kokoro',
+      fallbackReason,
+    };
+  }
+
   private async synthesizeEdge(
     text: string,
     newsId: string,
@@ -124,6 +191,7 @@ export class TtsService {
     audioFileName = 'narration.mp3',
   ): Promise<TtsResult> {
     const voice = this.appConfig.edgeTtsVoice;
+    const timeoutMs = 25_000;
     this.logger.log(
       `Synthesizing Edge TTS (${voice}) for news ${newsId}${
         fallbackReason ? ` [fallback: ${fallbackReason}]` : ''
@@ -131,7 +199,20 @@ export class TtsService {
     );
 
     const tts = new EdgeTTS(text, voice);
-    const result = await tts.synthesize();
+    const result = await Promise.race([
+      tts.synthesize(),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Edge TTS timed out after ${Math.round(timeoutMs / 1000)}s (Microsoft speech WebSocket hung/403)`,
+              ),
+            ),
+          timeoutMs,
+        );
+      }),
+    ]);
     const audioBuffer = Buffer.from(await result.audio.arrayBuffer());
 
     const outputDir = join(process.cwd(), this.appConfig.outputDir, newsId);

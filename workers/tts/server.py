@@ -29,6 +29,9 @@ os.environ.setdefault("COQUI_TOS_AGREED", "1")
 
 WORKER_DIR = Path(__file__).resolve().parent
 VOICES_DIR = WORKER_DIR / "voices"
+KOKORO_DIR = WORKER_DIR / "models" / "kokoro"
+KOKORO_ONNX = KOKORO_DIR / "kokoro-v1.0.onnx"
+KOKORO_VOICES = KOKORO_DIR / "voices-v1.0.bin"
 XTTS_MODEL = os.environ.get(
     "TTS_MODEL_ID",
     "tts_models/multilingual/multi-dataset/xtts_v2",
@@ -36,8 +39,16 @@ XTTS_MODEL = os.environ.get(
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base.en")
 DEFAULT_VOICE = os.environ.get("TTS_VOICE", "everton")
 DEFAULT_LANGUAGE = os.environ.get("TTS_LANGUAGE", "en")
-DEFAULT_SPEED = float(os.environ.get("TTS_SPEED", "0.95"))
-MAX_PACK_REFS = int(os.environ.get("TTS_PACK_MAX_REFS", "16"))
+DEFAULT_SPEED = float(os.environ.get("TTS_SPEED", "1.0"))
+MAX_PACK_REFS = int(os.environ.get("TTS_PACK_MAX_REFS", "10"))
+# Lower temperature → fewer invented / swapped words.
+XTTS_TEMPERATURE = float(os.environ.get("XTTS_TEMPERATURE", "0.55"))
+XTTS_TOP_P = float(os.environ.get("XTTS_TOP_P", "0.85"))
+XTTS_REPETITION_PENALTY = float(os.environ.get("XTTS_REPETITION_PENALTY", "5.0"))
+# Male US Kokoro voice — closest free local stand-in for Edge GuyNeural.
+KOKORO_VOICE = os.environ.get("KOKORO_VOICE", "am_michael")
+KOKORO_SPEED = float(os.environ.get("KOKORO_SPEED", "1.0"))
+KOKORO_LANG = os.environ.get("KOKORO_LANG", "en-us")
 
 WORD_RE = re.compile(r"[a-z0-9']+")
 
@@ -47,6 +58,13 @@ class SynthesizeRequest(BaseModel):
     language: str | None = None
     speaker_wav: str | None = None
     speed: float | None = None
+
+
+class KokoroSynthesizeRequest(BaseModel):
+    text: str = Field(min_length=1)
+    voice: str | None = None
+    speed: float | None = None
+    language: str | None = None
 
 
 class WordTimestamp(BaseModel):
@@ -65,6 +83,7 @@ class SynthesizeResponse(BaseModel):
     words: list[WordTimestamp]
     audio_base64: str
     mime_type: str = "audio/mpeg"
+    engine: str = "xtts"
 
 
 app = FastAPI(title="Local XTTS voice-clone worker", version="0.1.0")
@@ -119,7 +138,9 @@ def load_approved_paths(stem: str) -> list[Path]:
             logger.warning("Could not read approved.json (%s)", exc)
 
     if pack.is_dir():
-        numbered = sorted(pack.glob("[0-9][0-9].wav"))
+        numbered = sorted(pack.glob("[0-9][0-9].wav")) + sorted(
+            pack.glob("L[0-9][0-9].wav")
+        )
         paths = [p for p in numbered if p.is_file() and p.stat().st_size > 1000]
         if paths:
             return paths[:MAX_PACK_REFS]
@@ -174,6 +195,25 @@ def load_whisper() -> Any:
     return model
 
 
+def kokoro_ready() -> bool:
+    return KOKORO_ONNX.is_file() and KOKORO_VOICES.is_file()
+
+
+@lru_cache(maxsize=1)
+def load_kokoro() -> Any:
+    if not kokoro_ready():
+        raise FileNotFoundError(
+            f"Kokoro models missing under {KOKORO_DIR} "
+            "(need kokoro-v1.0.onnx + voices-v1.0.bin). Run yarn tts:kokoro:setup"
+        )
+    from kokoro_onnx import Kokoro
+
+    logger.info("Loading Kokoro ONNX from %s", KOKORO_DIR)
+    model = Kokoro(str(KOKORO_ONNX), str(KOKORO_VOICES))
+    logger.info("Kokoro ready (%s voices)", len(model.voices))
+    return model
+
+
 def wav_duration_ms(path: Path) -> int:
     import wave
 
@@ -185,22 +225,23 @@ def wav_duration_ms(path: Path) -> int:
     return max(1000, int(frames / rate * 1000))
 
 
-def wav_to_mp3(wav_path: Path, mp3_path: Path) -> None:
-    result = subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(wav_path),
-            "-codec:a",
-            "libmp3lame",
-            "-qscale:a",
-            "2",
-            str(mp3_path),
-        ],
-        capture_output=True,
-        check=False,
-    )
+def wav_to_mp3(wav_path: Path, mp3_path: Path, *, loudnorm: bool = False) -> None:
+    """Encode mp3; optional broadcast loudness so clone isn't buried in the mix."""
+    args = ["ffmpeg", "-y", "-i", str(wav_path)]
+    if loudnorm:
+        # Two-pass-ish single filter: target ~-14 LUFS, leave headroom.
+        args += [
+            "-af",
+            "loudnorm=I=-14:TP=-1.5:LRA=11:linear=true",
+        ]
+    args += [
+        "-codec:a",
+        "libmp3lame",
+        "-qscale:a",
+        "2",
+        str(mp3_path),
+    ]
+    result = subprocess.run(args, capture_output=True, check=False)
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace")[-400:]
         raise HTTPException(status_code=500, detail=f"ffmpeg mp3 failed: {stderr}")
@@ -341,6 +382,7 @@ def health() -> dict[str, Any]:
     voice_ready = bool(pack_paths) or legacy.is_file()
     tts_cache = load_tts.cache_info()
     whisper_cache = load_whisper.cache_info()
+    kokoro_cache = load_kokoro.cache_info()
     return {
         "ok": True,
         "model": XTTS_MODEL,
@@ -352,6 +394,9 @@ def health() -> dict[str, Any]:
         "pack_count": len(pack_paths),
         "pack_used": min(len(pack_paths), MAX_PACK_REFS) if pack_paths else (1 if legacy.is_file() else 0),
         "legacy_wav": legacy.is_file(),
+        "kokoro_ready": kokoro_ready(),
+        "kokoro_loaded": kokoro_cache.hits + kokoro_cache.misses > 0,
+        "kokoro_voice": KOKORO_VOICE,
     }
 
 
@@ -370,12 +415,13 @@ def synthesize(body: SynthesizeRequest) -> SynthesizeResponse:
         speaker_wav = [str(path) for path in speaker_paths]
 
     logger.info(
-        "Synthesizing voice=%s refs=%s device=%s chars=%s speed=%s",
+        "Synthesizing voice=%s refs=%s device=%s chars=%s speed=%s temp=%s",
         voice_name,
         len(speaker_paths),
         device,
         len(text),
         speed,
+        XTTS_TEMPERATURE,
     )
 
     with tempfile.TemporaryDirectory(prefix="video-gen-tts-") as tmp:
@@ -389,7 +435,24 @@ def synthesize(body: SynthesizeRequest) -> SynthesizeResponse:
                 file_path=str(wav_path),
                 split_sentences=True,
                 speed=speed,
+                temperature=XTTS_TEMPERATURE,
+                top_p=XTTS_TOP_P,
+                repetition_penalty=XTTS_REPETITION_PENALTY,
             )
+        except TypeError:
+            # Older coqui builds may not accept inference kwargs on tts_to_file.
+            try:
+                tts.tts_to_file(
+                    text=text,
+                    speaker_wav=speaker_wav,
+                    language=language,
+                    file_path=str(wav_path),
+                    split_sentences=True,
+                    speed=speed,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("XTTS synthesis failed")
+                raise HTTPException(status_code=500, detail=str(exc)) from exc
         except Exception as exc:  # noqa: BLE001
             logger.exception("XTTS synthesis failed")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -409,7 +472,7 @@ def synthesize(body: SynthesizeRequest) -> SynthesizeResponse:
             duration_ms,
             words[-1].endMs if words else 1000,
         )
-        wav_to_mp3(wav_path, mp3_path)
+        wav_to_mp3(wav_path, mp3_path, loudnorm=True)
         audio = mp3_path.read_bytes()
 
     logger.info(
@@ -426,6 +489,95 @@ def synthesize(body: SynthesizeRequest) -> SynthesizeResponse:
         durationMs=duration_ms,
         words=words,
         audio_base64=base64.b64encode(audio).decode("ascii"),
+        engine="xtts",
+    )
+
+
+@app.post("/synthesize-kokoro", response_model=SynthesizeResponse)
+def synthesize_kokoro(body: KokoroSynthesizeRequest) -> SynthesizeResponse:
+    """Local Kokoro-82M — Edge TTS fallback when Microsoft blocks free Edge."""
+    if not kokoro_ready():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Kokoro models not installed under {KOKORO_DIR}. "
+                "Run: yarn tts:kokoro:setup"
+            ),
+        )
+
+    voice = (body.voice or KOKORO_VOICE).strip() or KOKORO_VOICE
+    speed = body.speed if body.speed is not None else KOKORO_SPEED
+    speed = max(0.5, min(2.0, float(speed)))
+    lang = (body.language or KOKORO_LANG).strip() or KOKORO_LANG
+    text = re.sub(r"\s+", " ", body.text).strip()
+    tokens = tokenize_script(text)
+
+    try:
+        kokoro = load_kokoro()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Kokoro load failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if voice not in kokoro.voices:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown Kokoro voice '{voice}'. Try am_michael / am_adam / am_fenrir.",
+        )
+
+    logger.info(
+        "Synthesizing Kokoro voice=%s chars=%s speed=%s lang=%s",
+        voice,
+        len(text),
+        speed,
+        lang,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="video-gen-kokoro-") as tmp:
+        wav_path = Path(tmp) / "narration.wav"
+        mp3_path = Path(tmp) / "narration.mp3"
+        try:
+            import soundfile as sf
+
+            audio_np, sample_rate = kokoro.create(
+                text,
+                voice=voice,
+                speed=speed,
+                lang=lang,
+            )
+            sf.write(str(wav_path), audio_np, sample_rate, subtype="PCM_16")
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Kokoro synthesis failed")
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        if not wav_path.is_file() or wav_path.stat().st_size < 1000:
+            raise HTTPException(status_code=500, detail="Kokoro returned empty audio")
+
+        duration_ms = wav_duration_ms(wav_path)
+        try:
+            whispered = whisper_words(wav_path, text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Whisper alignment failed (%s); using even slices", exc)
+            whispered = []
+
+        words = align_script(tokens, whispered, duration_ms)
+        duration_ms = max(duration_ms, words[-1].endMs if words else 1000)
+        wav_to_mp3(wav_path, mp3_path, loudnorm=True)
+        audio = mp3_path.read_bytes()
+
+    logger.info(
+        "Kokoro ready: %s words, ~%ss",
+        len(words),
+        round(duration_ms / 1000),
+    )
+    return SynthesizeResponse(
+        model="kokoro-82m",
+        device="cpu",
+        voice=voice,
+        pack_used=1,
+        durationMs=duration_ms,
+        words=words,
+        audio_base64=base64.b64encode(audio).decode("ascii"),
+        engine="kokoro",
     )
 
 

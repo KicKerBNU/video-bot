@@ -1,0 +1,1 @@
+Cloudflare scale outages and model API brownouts are teaching teams to keep a second provider warm. Rate limits, region failovers, and cached embeddings matter as much as the leaderboard screenshot. For today's briefing, mention redundancy before you mention another parameter count. Steady pace, no rush on the technical terms.

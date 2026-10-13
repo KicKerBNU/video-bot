@@ -1,0 +1,142 @@
+{
+  "voice": "everton",
+  "mode": "focus",
+  "count": 15,
+  "scripts": [
+    {
+      "id": "F01",
+      "file": "focus/F01.txt",
+      "words": 48,
+      "recordSeconds": 28,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F02",
+      "file": "focus/F02.txt",
+      "words": 40,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F03",
+      "file": "focus/F03.txt",
+      "words": 40,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F04",
+      "file": "focus/F04.txt",
+      "words": 34,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F05",
+      "file": "focus/F05.txt",
+      "words": 37,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F06",
+      "file": "focus/F06.txt",
+      "words": 42,
+      "recordSeconds": 25,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F07",
+      "file": "focus/F07.txt",
+      "words": 38,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F08",
+      "file": "focus/F08.txt",
+      "words": 39,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F09",
+      "file": "focus/F09.txt",
+      "words": 36,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F10",
+      "file": "focus/F10.txt",
+      "words": 36,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F11",
+      "file": "focus/F11.txt",
+      "words": 33,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F12",
+      "file": "focus/F12.txt",
+      "words": 42,
+      "recordSeconds": 25,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F13",
+      "file": "focus/F13.txt",
+      "words": 32,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F14",
+      "file": "focus/F14.txt",
+      "words": 39,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    },
+    {
+      "id": "F15",
+      "file": "focus/F15.txt",
+      "words": 40,
+      "recordSeconds": 24,
+      "minSeconds": 20,
+      "hasCloser": true,
+      "mode": "focus"
+    }
+  ]
+}

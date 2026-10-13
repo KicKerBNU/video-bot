@@ -6,7 +6,9 @@ interface ScriptItem {
   text: string;
   words: number;
   recordSeconds: number;
+  minSeconds: number;
   hasCloser: boolean;
+  mode: 'short' | 'long' | 'focus';
   completed: boolean;
   durationSec: number | null;
   recordedAt: string | null;
@@ -15,14 +17,18 @@ interface ScriptItem {
 
 interface ScriptsResponse {
   voice: string;
+  mode: string;
   total: number;
   completedCount: number;
   nextId: string | null;
   scripts: ScriptItem[];
 }
 
+type UiMode = 'focus' | 'long' | 'short';
+
 const apiBase = '';
 
+const uiMode = ref<UiMode>('focus');
 const loading = ref(true);
 const error = ref('');
 const statusMsg = ref('');
@@ -55,11 +61,27 @@ const timerLabel = computed(() => {
   return `${m}:${r.toString().padStart(2, '0')}`;
 });
 
+const minSeconds = computed(() => selected.value?.minSeconds ?? 22);
+
+const elapsedSec = computed(() => Math.floor(elapsedMs.value / 1000));
+
+const canFinish = computed(() => {
+  if (!recording.value || saving.value) return false;
+  return elapsedSec.value >= minSeconds.value;
+});
+
+const minProgressPct = computed(() => {
+  const min = minSeconds.value || 1;
+  return Math.min(100, Math.round((elapsedSec.value / min) * 100));
+});
+
 async function load(preferId?: string | null) {
   loading.value = true;
   error.value = '';
   try {
-    const res = await fetch(`${apiBase}/voice-pack/scripts`);
+    const res = await fetch(
+      `${apiBase}/voice-pack/scripts?mode=${uiMode.value}`,
+    );
     if (!res.ok) throw new Error(`Failed to load scripts (${res.status})`);
     const json = (await res.json()) as ScriptsResponse;
     data.value = json;
@@ -75,10 +97,17 @@ async function load(preferId?: string | null) {
   }
 }
 
+function setMode(mode: UiMode) {
+  if (recording.value || saving.value) return;
+  uiMode.value = mode;
+  void load();
+}
+
 function select(id: string) {
   if (recording.value) return;
   selectedId.value = id;
   statusMsg.value = '';
+  error.value = '';
 }
 
 async function startRecording() {
@@ -95,7 +124,7 @@ async function startRecording() {
         channelCount: 1,
       },
     });
-  } catch (err) {
+  } catch {
     error.value =
       'Microphone permission denied. Allow mic access for this site, then try again.';
     return;
@@ -126,6 +155,11 @@ async function startRecording() {
 
 async function finishRecording() {
   if (!mediaRecorder || !selected.value || !recording.value) return;
+  if (elapsedSec.value < minSeconds.value) {
+    error.value = `Keep reading — need at least ${minSeconds.value}s (now ${elapsedSec.value}s).`;
+    return;
+  }
+
   saving.value = true;
   statusMsg.value = 'Saving…';
   statusOk.value = false;
@@ -136,7 +170,9 @@ async function finishRecording() {
       return;
     }
     mediaRecorder.onstop = () => {
-      resolve(new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' }));
+      resolve(
+        new Blob(chunks, { type: mediaRecorder?.mimeType || 'audio/webm' }),
+      );
     };
     mediaRecorder.onerror = () => reject(new Error('Recorder error'));
     mediaRecorder.stop();
@@ -160,15 +196,18 @@ async function finishRecording() {
   form.append('audio', blob, `${id}.webm`);
 
   try {
-    const res = await fetch(`${apiBase}/voice-pack/${id}/audio`, {
+    const res = await fetch(`${apiBase}/voice-pack/${encodeURIComponent(id)}/audio`, {
       method: 'POST',
       body: form,
     });
     const json = await res.json();
     if (!res.ok) {
-      throw new Error(json.message || json.error || `Upload failed (${res.status})`);
+      const msg = Array.isArray(json.message)
+        ? json.message.join(' ')
+        : json.message || json.error || `Upload failed (${res.status})`;
+      throw new Error(msg);
     }
-    statusMsg.value = `Saved script ${id}. ${json.completedCount}/${json.total} done.`;
+    statusMsg.value = `Saved ${id}. ${json.completedCount}/${json.total} done in this set.`;
     statusOk.value = true;
     await load(json.nextId ?? id);
   } catch (err) {
@@ -191,7 +230,10 @@ async function reRecord() {
     return;
   }
   const id = selected.value.id;
-  const res = await fetch(`${apiBase}/voice-pack/${id}`, { method: 'DELETE' });
+  const res = await fetch(
+    `${apiBase}/voice-pack/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  );
   if (!res.ok) {
     error.value = 'Could not delete recording';
     return;
@@ -221,7 +263,34 @@ onUnmounted(() => {
   <div class="layout">
     <aside class="sidebar">
       <h1 class="brand">ZanshinAI</h1>
-      <p class="sub">Voice pack recorder · resume anytime</p>
+      <p class="sub">Voice pack · longer takes = better clone</p>
+
+      <div class="mode-tabs">
+        <button
+          type="button"
+          :class="{ active: uiMode === 'focus' }"
+          :disabled="recording || saving"
+          @click="setMode('focus')"
+        >
+          Focus
+        </button>
+        <button
+          type="button"
+          :class="{ active: uiMode === 'long' }"
+          :disabled="recording || saving"
+          @click="setMode('long')"
+        >
+          Long form
+        </button>
+        <button
+          type="button"
+          :class="{ active: uiMode === 'short' }"
+          :disabled="recording || saving"
+          @click="setMode('short')"
+        >
+          Short
+        </button>
+      </div>
 
       <div class="progress" aria-hidden="true">
         <span :style="{ width: `${progressPct}%` }" />
@@ -238,7 +307,7 @@ onUnmounted(() => {
             :class="{ active: s.id === selectedId }"
             @click="select(s.id)"
           >
-            <span>Script {{ s.id }}</span>
+            <span>{{ s.id }}</span>
             <span class="done" v-if="s.completed">done</span>
             <span v-else style="color: var(--muted); font-size: 0.8rem">—</span>
           </button>
@@ -247,22 +316,45 @@ onUnmounted(() => {
     </aside>
 
     <main class="main">
-      <p class="kicker">Read aloud · news-host pace</p>
+      <p class="kicker">
+        {{
+          uiMode === 'focus'
+            ? 'Focus · drill US, Nvidia, Zanshin A I · min 20s'
+            : uiMode === 'long'
+              ? 'Long form · read the full paragraph · min 22s'
+              : 'Short clips · news-host pace'
+        }}
+      </p>
 
       <div v-if="loading">Loading scripts…</div>
       <div v-else-if="error && !selected" class="status error">{{ error }}</div>
 
       <div class="script-card" v-else-if="selected">
-        <p class="kicker">Script {{ selected.id }}</p>
+        <p class="kicker">Script {{ selected.id }} · {{ selected.mode }}</p>
         <p class="script-text">{{ selected.text }}</p>
 
         <div class="meta">
           <span>~{{ selected.words }} words</span>
-          <span>target ~{{ selected.recordSeconds }}s</span>
+          <span>window ~{{ selected.recordSeconds }}s</span>
+          <span>minimum {{ selected.minSeconds }}s</span>
           <span v-if="selected.completed">
-            saved {{ selected.durationSec?.toFixed?.(1) ?? selected.durationSec }}s
+            saved
+            {{
+              selected.durationSec?.toFixed?.(1) ?? selected.durationSec
+            }}s
           </span>
         </div>
+
+        <div v-if="recording" class="min-bar" aria-hidden="true">
+          <span :style="{ width: `${minProgressPct}%` }" />
+        </div>
+        <p v-if="recording" class="sub">
+          {{
+            canFinish
+              ? 'Minimum reached — finish when you complete the script'
+              : `Keep going… ${elapsedSec}s / ${minSeconds}s`
+          }}
+        </p>
 
         <div class="controls">
           <button
@@ -276,7 +368,7 @@ onUnmounted(() => {
           <button
             class="btn btn-finish"
             type="button"
-            :disabled="!recording || saving"
+            :disabled="!canFinish"
             @click="finishRecording"
           >
             Finish
@@ -307,8 +399,8 @@ onUnmounted(() => {
         </p>
         <p v-if="error" class="status error">{{ error }}</p>
         <p class="status">
-          Progress is saved on the server after each Finish. Come back tomorrow —
-          completed scripts stay marked done.
+          Prefer <strong>Focus</strong> next (US, Nvidia, closer), then Long form.
+          Progress saves after each Finish — resume anytime.
         </p>
       </div>
     </main>

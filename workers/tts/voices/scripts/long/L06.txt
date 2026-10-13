@@ -1,0 +1,1 @@
+Chip makers booked around fifty billion dollars in AI accelerator orders for the next four quarters. Spot GPU prices spiked near twelve dollars an hour during a training rush, and capacity vanished across three regions. Data center builders say delivery slips and power interconnects matter more than model hype. If you schedule training jobs, pad the calendar and the budget.

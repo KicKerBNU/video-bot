@@ -218,7 +218,7 @@ export class AppConfigService {
     if (configured) {
       return configured;
     }
-    return `That's all for today's news on ${this.brandName}.`;
+    return `That's all for today's news on Zanshin A-I.`;
   }
 
   get skipPublish(): boolean {

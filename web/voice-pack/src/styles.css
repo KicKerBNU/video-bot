@@ -71,6 +71,44 @@ button {
   margin: 0 0 18px;
 }
 
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.mode-tabs button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mode-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.min-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 0 0 8px;
+}
+
+.min-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #b45309, var(--accent));
+  transition: width 0.15s linear;
+}
+
 .progress {
   height: 8px;
   border-radius: 999px;

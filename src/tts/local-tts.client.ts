@@ -21,6 +21,8 @@ export interface LocalTtsHealth {
   packCount?: number;
   packUsed?: number;
   legacyWav?: boolean;
+  kokoroReady?: boolean;
+  kokoroVoice?: string;
   detail?: string;
 }
 
@@ -51,6 +53,8 @@ export class LocalTtsClient {
           pack_count?: number;
           pack_used?: number;
           legacy_wav?: boolean;
+          kokoro_ready?: boolean;
+          kokoro_voice?: string;
         };
         if (!response.ok) {
           return {
@@ -72,6 +76,8 @@ export class LocalTtsClient {
           packCount: payload.pack_count ?? 0,
           packUsed: payload.pack_used ?? 0,
           legacyWav: Boolean(payload.legacy_wav),
+          kokoroReady: Boolean(payload.kokoro_ready),
+          kokoroVoice: payload.kokoro_voice,
         };
       } finally {
         clearTimeout(timeout);
@@ -143,6 +149,71 @@ export class LocalTtsClient {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(
           `Local TTS timed out after ${this.appConfig.localTtsTimeoutMs}ms — is yarn tts:serve running?`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /** Kokoro-82M — used as Edge TTS fallback when Microsoft blocks free Edge. */
+  async synthesizeKokoro(
+    text: string,
+    voice?: string,
+  ): Promise<{ audio: Buffer; durationMs: number; words: WordTimestamp[] }> {
+    const endpoint = `${this.appConfig.localTtsUrl}/synthesize-kokoro`;
+    this.logger.log(
+      `Kokoro TTS synthesize → ${endpoint} (${voice ?? 'default'})`,
+    );
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.appConfig.localTtsTimeoutMs,
+    );
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          text,
+          ...(voice ? { voice } : {}),
+          language: 'en-us',
+        }),
+      });
+
+      const payload = (await response.json()) as LocalTtsResponse;
+      if (!response.ok) {
+        throw new Error(
+          `Kokoro TTS ${response.status}: ${payload.detail ?? JSON.stringify(payload).slice(0, 300)}`,
+        );
+      }
+
+      if (!payload.audio_base64) {
+        throw new Error('Kokoro TTS returned no audio_base64');
+      }
+
+      const audio = Buffer.from(payload.audio_base64, 'base64');
+      if (audio.length < 1000) {
+        throw new Error('Kokoro TTS returned empty audio');
+      }
+
+      const words = Array.isArray(payload.words) ? payload.words : [];
+      const durationMs =
+        payload.durationMs && payload.durationMs > 0
+          ? payload.durationMs
+          : words.length > 0
+            ? words[words.length - 1].endMs
+            : 1000;
+
+      return { audio, durationMs, words };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          `Kokoro TTS timed out after ${this.appConfig.localTtsTimeoutMs}ms`,
         );
       }
       throw error;
