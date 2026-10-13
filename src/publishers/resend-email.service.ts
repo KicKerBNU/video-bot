@@ -60,7 +60,10 @@ export class ResendEmailService {
     }
 
     const brand = this.appConfig.brandName;
-    const subject = `${brand} daily digest — ${script.title}`.slice(0, 120);
+    const digestLabel = script.id.startsWith('digest-work-')
+      ? 'work digest'
+      : 'daily digest';
+    const subject = `${brand} ${digestLabel} — ${script.title}`.slice(0, 120);
     const twitterCaption = buildTwitterCaption(script);
     const tiktokCaption = buildTikTokCaption(script);
     const threadsCaption = buildThreadsCaption(script);

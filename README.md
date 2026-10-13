@@ -38,8 +38,9 @@ Useful commands:
 # follow logs
 docker compose logs -f video-gen
 
-# trigger a manual pipeline run
+# trigger a manual pipeline run (tech / work)
 curl -sS -X POST http://localhost:3000/pipeline/run
+curl -sS -X POST http://localhost:3000/pipeline/run-work
 
 # stop
 docker compose down
@@ -66,17 +67,22 @@ railway logs
 Ops:
 - `GET https://video-gen-production-d57f.up.railway.app/health`
 - `POST https://video-gen-production-d57f.up.railway.app/pipeline/run`
+- `POST https://video-gen-production-d57f.up.railway.app/pipeline/run-work`
 - `GET https://video-gen-production-d57f.up.railway.app/pipeline/status`
 
 ## Ops endpoints
 
 - `GET /health` — liveness
-- `POST /pipeline/run` — run today's job manually
+- `POST /pipeline/run` — run today's tech digest manually
+- `POST /pipeline/run-work` — run today's work/jobs digest manually
 - `GET /pipeline/status` — last run + last posted item
 
 ## macOS background service (auto daily run)
 
-Keeps Wan + local TTS + Nest running via LaunchAgents after login. Nest’s cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) generates the video every day — Cursor does not need to be open.
+Keeps Wan + local TTS + Nest running via LaunchAgents after login. Nest’s crons generate two videos daily — Cursor does not need to be open:
+
+- Morning tech: `CRON_SCHEDULE` (default `1 8 * * *` UTC → ~09:01 Lisbon in summer)
+- Noon work/jobs: `CRON_WORK_SCHEDULE` (default `1 11 * * *` UTC → ~12:01 Lisbon in summer)
 
 ```bash
 yarn build
@@ -181,18 +187,31 @@ Without a working AI provider, the bot falls back to Openverse stills automatica
 
 ## Daily flow
 
-1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter). If today's digest isn't ready or the fetch fails, it retries up to **10 times every 10 minutes** (`PIPELINE_RETRY_ATTEMPTS` / `PIPELINE_RETRY_DELAY_MS`).
-2. Fetches `NEWS_API_URL` (`/api/digest`) and builds today's video script from `headline` + `bullets`
-3. TTS with word timestamps — Edge always, plus local XTTS clone when the voice pack is ready (both videos emailed)
-4. Local Wan images timed to each news segment (Openverse fallback)
-5. Custom FFmpeg engine renders 1080×1920 slideshow video (no on-screen script text)
-6. Builds `threads.jpg` (vertical post card) and `youtube-thumbnail.jpg` (**2160×3840, 9:16** — [YouTube Shorts custom thumbnail](https://support.google.com/youtube/answer/72431))
-7. Publishes to Twitter/X and TikTok (or emails assets when `SKIP_PUBLISH=true`). Email attaches `video.mp4` + captions
-8. Stores the digest id (`digest-YYYY-MM-DD`) in SQLite so it is not posted again
+Two independent digests run each day (same render/email path; separate store ids):
+
+### Morning — tech digest
+
+1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the tech digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter). Retries up to **10 times every 10 minutes** if needed.
+2. Fetches `NEWS_API_URL` (`/api/digest`) → script id `digest-YYYY-MM-DD`
+
+### Noon — work / jobs digest
+
+1. Cron (`CRON_WORK_SCHEDULE`, default `1 11 * * *` UTC → ~12:01 Lisbon in summer). Same retry settings.
+2. Fetches `NEWS_API_WORK_URL` (default `${NEWS_API_URL}/work`) → script id `digest-work-YYYY-MM-DD`
+3. Email subject uses **work digest** so it is distinct from the morning mail
+
+### Shared steps (both)
+
+1. TTS with word timestamps — Edge (or Kokoro fallback), plus local XTTS clone when the voice pack is ready (both videos emailed)
+2. Local Wan images timed to each news segment (Openverse fallback)
+3. Custom FFmpeg engine renders 1080×1920 slideshow video (no on-screen script text)
+4. Builds `threads.jpg` (vertical post card) and `youtube-thumbnail.jpg` (**2160×3840, 9:16** — [YouTube Shorts custom thumbnail](https://support.google.com/youtube/answer/72431))
+5. Publishes to Twitter/X and TikTok (or emails assets when `SKIP_PUBLISH=true`). Email attaches `video.mp4` + captions
+6. Stores the digest id in SQLite so that kind is not posted again the same day
 
 ## News API shape
 
-Expected response from `GET /api/digest`:
+Expected response from `GET /api/digest` and `GET /api/digest/work` (same shape; work includes `"kind": "work"`):
 
 ```json
 {
@@ -207,4 +226,4 @@ Expected response from `GET /api/digest`:
 }
 ```
 
-The pipeline posts one daily video (`digest-YYYY-MM-DD`) assembled from all bullets. Individual bullet scripts are also normalized and stored with stable ids for later use.
+The pipeline posts one video per digest kind (`digest-YYYY-MM-DD` and `digest-work-YYYY-MM-DD`) assembled from all bullets. Individual bullet scripts are also normalized with stable ids for later use.

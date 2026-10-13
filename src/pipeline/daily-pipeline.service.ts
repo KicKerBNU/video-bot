@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { join } from 'path';
 import { AppConfigService } from '../config/app-config.service';
-import { PipelineRunResult, PublishResult, TtsResult } from '../common/types';
+import {
+  DigestKind,
+  PipelineRunResult,
+  PublishResult,
+  TtsResult,
+} from '../common/types';
 import { NewsService } from '../news/news.service';
 import { StoreService } from '../store/store.service';
 import { TtsService } from '../tts/tts.service';
@@ -32,7 +37,7 @@ export class DailyPipelineService {
     private readonly youtubeThumbnail: YoutubeThumbnailService,
   ) {}
 
-  async run(): Promise<PipelineRunResult> {
+  async run(kind: DigestKind = 'tech'): Promise<PipelineRunResult> {
     if (this.running) {
       return {
         status: 'skipped',
@@ -46,14 +51,15 @@ export class DailyPipelineService {
     const startedAt = new Date().toISOString();
 
     try {
-      const script = await this.newsService.fetchNextUnpublished((id) =>
-        this.store.isPosted(id),
+      const script = await this.newsService.fetchNextUnpublished(
+        (id) => this.store.isPosted(id),
+        kind,
       );
 
       if (!script) {
         const result: PipelineRunResult = {
           status: 'skipped',
-          message: 'No unpublished news scripts found',
+          message: `No unpublished ${kind} digest scripts found`,
           startedAt,
           finishedAt: new Date().toISOString(),
         };
@@ -61,7 +67,7 @@ export class DailyPipelineService {
         return result;
       }
 
-      this.logger.log(`Processing news ${script.id}: ${script.title}`);
+      this.logger.log(`Processing ${kind} ${script.id}: ${script.title}`);
 
       const bodyText = truncateScriptForShortForm(
         [script.hook, script.body].filter(Boolean).join('. '),
@@ -262,6 +268,7 @@ export class DailyPipelineService {
       lastRun: this.store.getLastRun(),
       lastPosted: this.store.getLastPosted(),
       cronSchedule: this.appConfig.cronSchedule,
+      cronWorkSchedule: this.appConfig.cronWorkSchedule,
       cronTimezone: this.appConfig.cronTimezone,
       brandName: this.appConfig.brandName,
       skipPublish: this.appConfig.skipPublish,
