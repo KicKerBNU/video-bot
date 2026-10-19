@@ -13,15 +13,6 @@ export class AppConfigService {
     return this.config.getOrThrow<string>('NEWS_API_URL');
   }
 
-  /** Work / jobs digest (AI disruption). Defaults to `${NEWS_API_URL}/work`. */
-  get newsApiWorkUrl(): string {
-    const configured = this.config.get<string>('NEWS_API_WORK_URL')?.trim();
-    if (configured) {
-      return configured.replace(/\/$/, '');
-    }
-    return `${this.newsApiUrl.replace(/\/$/, '')}/work`;
-  }
-
   get newsApiKey(): string | undefined {
     const key = this.config.get<string>('NEWS_API_KEY');
     return key && key.length > 0 ? key : undefined;
@@ -212,11 +203,6 @@ export class AppConfigService {
   get cronSchedule(): string {
     // Digest publishes at 08:00 UTC; wait 1 minute before generating.
     return this.config.get<string>('CRON_SCHEDULE') ?? '1 8 * * *';
-  }
-
-  /** Noon work digest (~12:01 Lisbon in summer when timezone is UTC). */
-  get cronWorkSchedule(): string {
-    return this.config.get<string>('CRON_WORK_SCHEDULE') ?? '1 11 * * *';
   }
 
   get cronTimezone(): string {

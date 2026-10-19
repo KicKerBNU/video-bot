@@ -130,7 +130,7 @@ function shortenTitle(title: string): string {
 }
 
 function formatDigestDate(script: VideoScript): string {
-  const fromId = script.id.match(/^digest-(?:work-)?(\d{4}-\d{2}-\d{2})$/)?.[1];
+  const fromId = script.id.match(/^digest-(\d{4}-\d{2}-\d{2})$/)?.[1];
   const iso = script.publishedAt?.slice(0, 10) || fromId;
   const date = iso ? new Date(`${iso}T12:00:00Z`) : new Date();
 

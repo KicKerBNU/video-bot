@@ -10,9 +10,6 @@ export interface ScriptSegment {
   imagePrompt?: string;
 }
 
-/** Morning tech digest vs noon work/jobs digest. */
-export type DigestKind = 'tech' | 'work';
-
 export interface VideoScript {
   id: string;
   title: string;

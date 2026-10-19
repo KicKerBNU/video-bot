@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { AppConfigService } from '../config/app-config.service';
-import { DigestKind, VideoScript } from '../common/types';
+import { VideoScript } from '../common/types';
 
 interface DigestBullet {
   title?: string;
@@ -19,7 +19,6 @@ interface DigestPayload {
 }
 
 const LISBON_TZ = 'Europe/Lisbon';
-const TECH_DIGEST_ID = /^digest-\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
 export class NewsService {
@@ -27,13 +26,8 @@ export class NewsService {
 
   constructor(private readonly appConfig: AppConfigService) {}
 
-  async fetchLatestScripts(
-    kind: DigestKind = 'tech',
-  ): Promise<VideoScript[]> {
-    const url =
-      kind === 'work'
-        ? this.appConfig.newsApiWorkUrl
-        : this.appConfig.newsApiUrl;
+  async fetchLatestScripts(): Promise<VideoScript[]> {
+    const url = this.appConfig.newsApiUrl;
     const headers: Record<string, string> = {
       Accept: 'application/json',
     };
@@ -42,7 +36,7 @@ export class NewsService {
       headers.Authorization = `Bearer ${this.appConfig.newsApiKey}`;
     }
 
-    this.logger.log(`Fetching ${kind} digest from ${url}`);
+    this.logger.log(`Fetching digest from ${url}`);
 
     const maxAttempts = 4;
     let lastError: unknown;
@@ -61,11 +55,9 @@ export class NewsService {
         }
 
         const payload = (await response.json()) as DigestPayload;
-        const scripts = this.normalizeDigest(payload, kind);
+        const scripts = this.normalizeDigest(payload);
 
-        this.logger.log(
-          `Normalized ${scripts.length} script(s) from ${kind} digest`,
-        );
+        this.logger.log(`Normalized ${scripts.length} script(s) from digest`);
         return scripts;
       } catch (error) {
         lastError = error;
@@ -87,14 +79,10 @@ export class NewsService {
 
   async fetchNextUnpublished(
     isPosted: (id: string) => boolean,
-    kind: DigestKind = 'tech',
   ): Promise<VideoScript | null> {
-    const scripts = await this.fetchLatestScripts(kind);
-    const daily = scripts.find((script) =>
-      kind === 'work'
-        ? script.id.startsWith('digest-work-')
-        : TECH_DIGEST_ID.test(script.id),
-    );
+    const scripts = await this.fetchLatestScripts();
+    // Prefer the combined daily digest for the once-per-day post.
+    const daily = scripts.find((script) => script.id.startsWith('digest-'));
     if (daily && !isPosted(daily.id)) {
       return daily;
     }
@@ -104,22 +92,16 @@ export class NewsService {
 
   async fetchNextUnpublishedBullet(
     isPosted: (id: string) => boolean,
-    kind: DigestKind = 'tech',
   ): Promise<VideoScript | null> {
-    const scripts = await this.fetchLatestScripts(kind);
-    const bulletPrefix = kind === 'work' ? 'bullet-work-' : 'bullet-';
+    const scripts = await this.fetchLatestScripts();
     return (
       scripts.find(
-        (script) =>
-          script.id.startsWith(bulletPrefix) && !isPosted(script.id),
+        (script) => script.id.startsWith('bullet-') && !isPosted(script.id),
       ) ?? null
     );
   }
 
-  private normalizeDigest(
-    payload: DigestPayload,
-    kind: DigestKind,
-  ): VideoScript[] {
+  private normalizeDigest(payload: DigestPayload): VideoScript[] {
     const digest = payload.digest;
     if (!digest) {
       throw new Error('Digest API response missing digest object');
@@ -141,7 +123,6 @@ export class NewsService {
 
     // One daily video script assembled from all bullets.
     const dailyScript = this.buildDailyDigestScript({
-      kind,
       dayId,
       headline,
       bullets,
@@ -151,7 +132,6 @@ export class NewsService {
     // Also expose each bullet as its own script (stable ids) for future use.
     const bulletScripts = bullets.map((bullet, index) =>
       this.buildBulletScript({
-        kind,
         dayId,
         index,
         bullet,
@@ -163,24 +143,23 @@ export class NewsService {
   }
 
   private buildDailyDigestScript(params: {
-    kind: DigestKind;
     dayId: string;
     headline: string;
     bullets: DigestBullet[];
     publishedAt: string;
   }): VideoScript {
-    const { kind, dayId, headline, bullets, publishedAt } = params;
+    const { dayId, headline, bullets, publishedAt } = params;
     const bodyParts = bullets.map((bullet, index) => {
       const prefix =
         index === 0 ? 'First' : index === bullets.length - 1 ? 'Finally' : 'Next';
       return `${prefix}: ${bullet.title!.trim()}. ${bullet.summary!.trim()}`;
     });
 
-    const isWork = kind === 'work';
-    const intro = isWork
-      ? `Here is today's work and jobs digest.`
-      : `Here is today's AI news digest.`;
-    const body = [intro, `Top story: ${headline}.`, ...bodyParts].join(' ');
+    const body = [
+      `Here is today's AI news digest.`,
+      `Top story: ${headline}.`,
+      ...bodyParts,
+    ].join(' ');
 
     const segments = [
       {
@@ -199,63 +178,50 @@ export class NewsService {
       })),
       {
         id: 'closing',
-        title: isWork ? 'Work and jobs studio' : 'AI news studio',
+        title: 'AI news studio',
         summary: headline,
         spokenHint: "That's all for today",
-        searchQuery: isWork
-          ? 'modern office open workspace desks'
-          : 'news studio microphone desk',
+        searchQuery: 'news studio microphone desk',
         imagePrompt: this.toImagePrompt(
-          isWork
-            ? 'modern open-plan office with empty desks and soft daylight, city skyline through glass, no screens with text, cinematic editorial photo'
-            : 'modern broadcast news desk with soft cinematic lighting, empty unmarked monitors turned off, microphone and city skyline bokeh through window',
-          isWork
-            ? 'modern office open workspace desks'
-            : 'news studio microphone desk',
+          'modern broadcast news desk with soft cinematic lighting, empty unmarked monitors turned off, microphone and city skyline bokeh through window',
+          'news studio microphone desk',
         ),
       },
     ];
 
     return {
-      id: isWork ? `digest-work-${dayId}` : `digest-${dayId}`,
+      id: `digest-${dayId}`,
       title: headline,
       body,
-      hook: isWork ? `Work and jobs for ${dayId}` : `AI news for ${dayId}`,
-      hashtags: isWork
-        ? ['#AI', '#Jobs', '#FutureOfWork']
-        : ['#AI', '#TechNews', '#AINews'],
+      hook: `AI news for ${dayId}`,
+      hashtags: ['#AI', '#TechNews', '#AINews'],
       publishedAt,
       segments,
     };
   }
 
   private buildBulletScript(params: {
-    kind: DigestKind;
     dayId: string;
     index: number;
     bullet: DigestBullet;
     publishedAt: string;
   }): VideoScript {
-    const { kind, dayId, index, bullet, publishedAt } = params;
+    const { dayId, index, bullet, publishedAt } = params;
     const title = bullet.title!.trim();
     const summary = bullet.summary!.trim();
     const source = bullet.source?.trim();
     const slug = this.slugify(title);
     const hash = createHash('sha1')
-      .update(`${kind}:${dayId}:${index}:${title}`)
+      .update(`${dayId}:${index}:${title}`)
       .digest('hex')
       .slice(0, 8);
-    const idPrefix = kind === 'work' ? 'bullet-work' : 'bullet';
 
     return {
-      id: `${idPrefix}-${dayId}-${index + 1}-${slug || hash}`,
+      id: `bullet-${dayId}-${index + 1}-${slug || hash}`,
       title,
       body: `${title}. ${summary}`,
       hook: source ? `From ${source}` : undefined,
-      hashtags:
-        kind === 'work'
-          ? ['#AI', '#Jobs', '#FutureOfWork']
-          : ['#AI', '#TechNews'],
+      hashtags: ['#AI', '#TechNews'],
       publishedAt,
       segments: [
         {

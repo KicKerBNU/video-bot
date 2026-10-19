@@ -7,12 +7,7 @@ export class PipelineController {
 
   @Post('run')
   run() {
-    return this.pipeline.run('tech');
-  }
-
-  @Post('run-work')
-  runWork() {
-    return this.pipeline.run('work');
+    return this.pipeline.run();
   }
 
   @Get('status')
