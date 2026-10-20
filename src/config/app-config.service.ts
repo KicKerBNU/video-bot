@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getLocalTimeZone } from '../common/local-timezone';
 
 @Injectable()
 export class AppConfigService {
@@ -201,12 +202,17 @@ export class AppConfigService {
   }
 
   get cronSchedule(): string {
-    // Digest publishes at 08:00 UTC; wait 1 minute before generating.
+    // Default: 08:01 in this machine's local timezone.
     return this.config.get<string>('CRON_SCHEDULE') ?? '1 8 * * *';
   }
 
+  /** Cron IANA timezone. Defaults to this machine's local timezone. */
   get cronTimezone(): string {
-    return this.config.get<string>('CRON_TIMEZONE') ?? 'UTC';
+    const configured = this.config.get<string>('CRON_TIMEZONE')?.trim();
+    if (configured) {
+      return configured;
+    }
+    return getLocalTimeZone();
   }
 
   get brandName(): string {

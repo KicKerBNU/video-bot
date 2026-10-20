@@ -193,9 +193,7 @@ export class ResendEmailService {
         ? ` after ${params.attempt} attempts`
         : '';
     const subject = `${brand} daily video FAILED${attemptLabel}`.slice(0, 120);
-    const when = new Date(params.finishedAt).toLocaleString('en-GB', {
-      timeZone: 'Europe/Lisbon',
-    });
+    const when = new Date(params.finishedAt).toLocaleString('en-GB');
     const html = `<!doctype html>
 <html>
   <body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;line-height:1.5;color:#111;max-width:560px;margin:0 auto;padding:24px;">
@@ -203,7 +201,7 @@ export class ResendEmailService {
     <h1 style="font-size:22px;margin:0 0 12px;">Daily video generation failed</h1>
     <p style="font-size:15px;color:#333;">The pipeline could not generate today's video${escapeHtml(attemptLabel)}.</p>
     <p style="font-size:14px;background:#fef2f2;border-radius:10px;padding:14px;"><strong>Error:</strong> ${escapeHtml(params.message)}</p>
-    <p style="font-size:13px;color:#666;margin-top:20px;">Started: ${escapeHtml(params.startedAt)}<br/>Finished: ${escapeHtml(params.finishedAt)} (${escapeHtml(when)} Lisbon)</p>
+    <p style="font-size:13px;color:#666;margin-top:20px;">Started: ${escapeHtml(params.startedAt)}<br/>Finished: ${escapeHtml(params.finishedAt)} (${escapeHtml(when)} local)</p>
     <p style="font-size:13px;color:#666;">Check logs: <code>logs/macos/app.stdout.log</code> / <code>app.stderr.log</code>, or run <code>POST /pipeline/run</code> manually.</p>
   </body>
 </html>`;

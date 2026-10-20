@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { join } from 'path';
 import { AppConfigService } from '../config/app-config.service';
+import { getLocalTimeZone } from '../common/local-timezone';
 import { PipelineRunResult, PublishResult, TtsResult } from '../common/types';
 import { NewsService } from '../news/news.service';
 import { StoreService } from '../store/store.service';
@@ -263,6 +264,7 @@ export class DailyPipelineService {
       lastPosted: this.store.getLastPosted(),
       cronSchedule: this.appConfig.cronSchedule,
       cronTimezone: this.appConfig.cronTimezone,
+      localTimezone: getLocalTimeZone(),
       brandName: this.appConfig.brandName,
       skipPublish: this.appConfig.skipPublish,
       skipEmail: this.appConfig.skipEmail,

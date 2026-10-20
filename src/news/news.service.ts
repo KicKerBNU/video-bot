@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { AppConfigService } from '../config/app-config.service';
+import { toLocalDayId } from '../common/local-timezone';
 import { VideoScript } from '../common/types';
 
 interface DigestBullet {
@@ -17,8 +18,6 @@ interface DigestPayload {
     bullets?: DigestBullet[];
   };
 }
-
-const LISBON_TZ = 'Europe/Lisbon';
 
 @Injectable()
 export class NewsService {
@@ -117,7 +116,7 @@ export class NewsService {
     }
 
     const publishedAt = digest.timestamp ?? new Date().toISOString();
-    const dayId = this.toLisbonDayId(publishedAt);
+    const dayId = toLocalDayId(publishedAt);
     const headline =
       digest.headline?.trim() || bullets[0].title!.trim();
 
@@ -428,26 +427,6 @@ export class NewsService {
     }
 
     return unique.slice(0, 3).join(' ').trim();
-  }
-
-  private toLisbonDayId(isoTimestamp: string): string {
-    const date = new Date(isoTimestamp);
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: LISBON_TZ,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(date);
-
-    const year = parts.find((part) => part.type === 'year')?.value;
-    const month = parts.find((part) => part.type === 'month')?.value;
-    const day = parts.find((part) => part.type === 'day')?.value;
-
-    if (!year || !month || !day) {
-      return isoTimestamp.slice(0, 10);
-    }
-
-    return `${year}-${month}-${day}`;
   }
 
   private slugify(value: string): string {

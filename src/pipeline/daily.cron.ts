@@ -2,12 +2,11 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { AppConfigService } from '../config/app-config.service';
+import { toLocalDayId } from '../common/local-timezone';
 import { PipelineRunResult } from '../common/types';
 import { ResendEmailService } from '../publishers/resend-email.service';
 import { StoreService } from '../store/store.service';
 import { DailyPipelineService } from './daily-pipeline.service';
-
-const LISBON_TZ = 'Europe/Lisbon';
 
 @Injectable()
 export class DailyCronService implements OnModuleInit {
@@ -119,16 +118,7 @@ export class DailyCronService implements OnModuleInit {
   }
 
   private todayDigestId(): string {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: LISBON_TZ,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date());
-    const year = parts.find((part) => part.type === 'year')?.value;
-    const month = parts.find((part) => part.type === 'month')?.value;
-    const day = parts.find((part) => part.type === 'day')?.value;
-    return `digest-${year}-${month}-${day}`;
+    return `digest-${toLocalDayId()}`;
   }
 
   private isTodaysDigestPosted(): boolean {

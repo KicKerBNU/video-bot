@@ -3,11 +3,10 @@ import { join } from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
 import { AppConfigService } from '../config/app-config.service';
+import { getLocalTimeZone } from '../common/local-timezone';
 import { VideoScript } from '../common/types';
 import { VIDEO_HEIGHT, VIDEO_WIDTH } from '../common/video-constants';
 import { digestHeadlines } from '../publishers/post-captions';
-
-const LISBON_TZ = 'Europe/Lisbon';
 
 @Injectable()
 export class ThreadsImageService {
@@ -129,7 +128,7 @@ function formatDigestDate(script: VideoScript): string {
   const date = iso ? new Date(`${iso}T12:00:00Z`) : new Date();
 
   return new Intl.DateTimeFormat('en-GB', {
-    timeZone: LISBON_TZ,
+    timeZone: getLocalTimeZone(),
     day: '2-digit',
     month: 'short',
     year: 'numeric',

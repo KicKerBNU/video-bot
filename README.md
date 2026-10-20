@@ -76,7 +76,7 @@ Ops:
 
 ## macOS background service (auto daily run)
 
-Keeps Wan + local TTS + Nest running via LaunchAgents after login. Nest’s cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) generates the video every day — Cursor does not need to be open.
+Keeps Wan + local TTS + Nest running via LaunchAgents after login. Nest’s cron (`CRON_SCHEDULE`, default `1 8 * * *` in the machine’s local timezone) generates the video every day — Cursor does not need to be open.
 
 ```bash
 yarn build
@@ -181,8 +181,8 @@ Without a working AI provider, the bot falls back to Openverse stills automatica
 
 ## Daily flow
 
-1. Cron (`CRON_SCHEDULE`, default `1 8 * * *` UTC) runs 1 minute after the digest job (`0 8 * * *` UTC → 09:00 Lisbon in summer, 08:00 in winter). If today's digest isn't ready or the fetch fails, it retries up to **10 times every 10 minutes** (`PIPELINE_RETRY_ATTEMPTS` / `PIPELINE_RETRY_DELAY_MS`).
-2. Fetches `NEWS_API_URL` (`/api/digest`) and builds today's video script from `headline` + `bullets`
+1. Cron (`CRON_SCHEDULE`, default `1 8 * * *`) runs at **08:01 in this machine's local timezone** (`CRON_TIMEZONE` defaults to the OS timezone). If today's digest isn't ready or the fetch fails, it retries up to **10 times every 10 minutes** (`PIPELINE_RETRY_ATTEMPTS` / `PIPELINE_RETRY_DELAY_MS`).
+2. Fetches `NEWS_API_URL` (`/api/digest`) and builds today's video script from `headline` + `bullets` (digest id uses the local calendar day)
 3. TTS with word timestamps — Edge always, plus local XTTS clone when the voice pack is ready (both videos emailed)
 4. Local Wan images timed to each news segment (Openverse fallback)
 5. Custom FFmpeg engine renders 1080×1920 slideshow video (no on-screen script text)
